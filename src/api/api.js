@@ -1,7 +1,10 @@
 import axios from "axios";
 
+// Environment variable with fallback to live Railway production backend domain
+const API_URL = import.meta.env.VITE_API_BASE_URL || "https://health.zuuuz.in";
+
 const api = axios.create({
-  baseURL: "http://localhost:8080",
+  baseURL: API_URL,
 });
 
 api.interceptors.request.use((config) => {
