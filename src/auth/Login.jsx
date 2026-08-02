@@ -23,18 +23,16 @@ function Login() {
 
       // ✅ MODIFIED: Extract userId along with token and role
       // Note: Make sure your Backend AuthController actually returns 'userId' in the JSON response!
-      const { token, role, userId } = res.data;
+      const { token, role, userId, name, email: userEmail } = res.data;
 
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
+      if (name) localStorage.setItem("userName", name);
+      if (userEmail || email) localStorage.setItem("userEmail", userEmail || email);
 
-      // ✅ ADDED: Store User ID and the User Object
-      // This creates the "user" object that BookAppointment.js looks for: JSON.parse(localStorage.getItem("user")).id
       if (userId) {
           localStorage.setItem("userId", userId);
-          localStorage.setItem("user", JSON.stringify({ id: userId, email: email })); 
-      } else {
-          console.warn("⚠️ Warning: userId was undefined in the login response.");
+          localStorage.setItem("user", JSON.stringify({ id: userId, name: name, email: userEmail || email })); 
       }
 
       switch (role) {
@@ -168,8 +166,9 @@ const styles = {
     padding: "40px 20px",
   },
   card: {
-    width: "380px",
-    padding: "35px",
+    width: "100%",
+    maxWidth: "380px",
+    padding: "25px",
     background: "#ffffff",
     borderRadius: "12px",
     boxShadow: "0 4px 20px rgba(0,0,0,0.05)",

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../api/api";
+import api from "../../api/api";
 
 function SetAvailability() {
   const [doctors, setDoctors] = useState([]);
@@ -11,7 +11,9 @@ function SetAvailability() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    apiFetch("/api/doctors").then(setDoctors);
+    api.get("/api/doctors")
+      .then(res => setDoctors(res.data))
+      .catch(err => console.error(err));
   }, []);
 
   const handleSubmit = async (e) => {
@@ -19,15 +21,10 @@ function SetAvailability() {
     setMessage("");
 
     try {
-      await apiFetch("/api/availability/add", {
-        method: "POST",
-        body: {
-          doctorId: Number(doctorId),
-          date,
-          startTime,
-          endTime,
-          slotDurationMinutes
-        }
+      await api.post("/api/availability/add", {
+        date,
+        startTime,
+        endTime
       });
 
       setMessage("Availability added successfully ✅");

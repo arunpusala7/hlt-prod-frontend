@@ -55,7 +55,7 @@ function DoctorScanner() {
   return (
     <div style={{ width: "100%", textAlign: "center" }}>
       {isScanning ? (
-        <div style={{ borderRadius: "12px", overflow: "hidden", height: "300px", background: "#000" }}>
+        <div style={{ borderRadius: "12px", overflow: "hidden", width: "100%", maxWidth: "450px", height: "min(350px, 55vh)", margin: "0 auto", background: "#000" }}>
            <Scanner onScan={handleScan} components={{ audio: false, finder: true }} />
         </div>
       ) : (

@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../api/api";
+import api from "../../api/api";
 
 function AllAppointments() {
   const [appointments, setAppointments] = useState([]);
 
   useEffect(() => {
-    apiFetch("/api/admin/appointments").then(setAppointments);
+    api.get("/api/admin/appointments")
+      .then(res => setAppointments(res.data))
+      .catch(err => console.error(err));
   }, []);
 
   const cancelAppointment = async (id) => {
-    await apiFetch(`/api/admin/appointments/${id}`, {
-      method: "DELETE"
-    });
-
-    setAppointments(appointments.filter(a => a.appointmentId !== id));
+    try {
+      await api.delete(`/api/admin/appointments/${id}`);
+      setAppointments(appointments.filter(a => a.appointmentId !== id));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (

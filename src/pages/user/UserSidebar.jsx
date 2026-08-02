@@ -26,10 +26,10 @@ function UserSidebar({ activeTab, setActiveTab }) {
 
 const styles = {
   sidebar: { 
-    width: "200px", 
+    width: "210px", 
     backgroundColor: "#ffffff", 
-    borderRight: "1px solid #eaeaea", 
-    padding: "20px 10px" 
+    borderRight: "1px solid #f1f5f9", 
+    padding: "20px 12px" 
   },
   menuList: { 
     listStyle: "none", 
@@ -37,26 +37,26 @@ const styles = {
     margin: 0, 
     display: "flex", 
     flexDirection: "column", 
-    gap: "5px" 
+    gap: "6px" 
   },
   menuItem: { 
-    padding: "10px 15px", 
+    padding: "10px 14px", 
     fontSize: "13px",     
     fontWeight: "500", 
-    color: "#5f6368", 
+    color: "#475569", 
     cursor: "pointer", 
     display: "flex", 
     alignItems: "center", 
-    gap: "12px", 
+    gap: "10px", 
     borderRadius: "8px", 
     transition: "all 0.2s ease" 
   },
   active: { 
-    backgroundColor: "#e8f0fe", 
-    color: "#1a73e8", 
-    fontWeight: "600" 
+    backgroundColor: "#eff6ff", 
+    color: "#2563eb", 
+    fontWeight: "700" 
   },
-  icon: { fontSize: "16px" },
+  icon: { fontSize: "14px" },
 };
 
 export default UserSidebar;

@@ -8,13 +8,50 @@ function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+
+  const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  // Step 1: Send OTP to Email
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setError("");
+
+    if (!name || !email || !password) {
+      setError("Please fill in all fields first.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await api.post("/api/auth/send-otp", { email });
+      setOtpSent(true);
+      setMessage(`📩 Verification code sent to ${email}. Please check your inbox.`);
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.response?.data || "Failed to send OTP code. Email may already exist.";
+      setError(`❌ ${typeof errMsg === 'string' ? errMsg : "Failed to send verification code."}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2: Verify OTP & Register Account
   const handleRegister = async (e) => {
     e.preventDefault();
     setMessage("");
     setError("");
+
+    if (!otp || otp.trim().length !== 6) {
+      setError("Please enter a valid 6-digit verification code.");
+      return;
+    }
+
+    setLoading(true);
 
     try {
       await api.post("/api/auth/register", {
@@ -22,16 +59,20 @@ function Register() {
         email: email,
         password: password,
         role: "USER",
+        otp: otp.trim(),
       });
 
-      setMessage("✅ Registration successful! Please login.");
+      setMessage("✅ Registration successful! Redirecting to login...");
 
       setTimeout(() => {
         navigate("/login");
       }, 1500);
 
     } catch (err) {
-      setError("❌ Registration failed. Email may already exist.");
+      const errMsg = err.response?.data?.message || err.response?.data || "Registration failed. Invalid or expired OTP code.";
+      setError(`❌ ${typeof errMsg === 'string' ? errMsg : "Registration failed. Please try again."}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -49,7 +90,7 @@ function Register() {
 
       {/* ================= MAIN CONTENT ================= */}
       <div style={styles.contentWrapper}>
-        <form style={styles.card} onSubmit={handleRegister}>
+        <form style={styles.card} onSubmit={otpSent ? handleRegister : handleSendOtp}>
           <h2 style={styles.title}>Create Account</h2>
 
           {message && <p style={styles.success}>{message}</p>}
@@ -60,8 +101,9 @@ function Register() {
             placeholder="Full Name"
             value={name}
             required
+            disabled={otpSent}
             onChange={(e) => setName(e.target.value)}
-            style={styles.input}
+            style={otpSent ? { ...styles.input, backgroundColor: '#f0f0f0' } : styles.input}
           />
 
           <input
@@ -69,8 +111,9 @@ function Register() {
             placeholder="Email Address"
             value={email}
             required
+            disabled={otpSent}
             onChange={(e) => setEmail(e.target.value)}
-            style={styles.input}
+            style={otpSent ? { ...styles.input, backgroundColor: '#f0f0f0' } : styles.input}
           />
 
           <input
@@ -78,12 +121,44 @@ function Register() {
             placeholder="Password"
             value={password}
             required
+            disabled={otpSent}
             onChange={(e) => setPassword(e.target.value)}
-            style={styles.input}
+            style={otpSent ? { ...styles.input, backgroundColor: '#f0f0f0' } : styles.input}
           />
 
-          <button type="submit" style={styles.button}>
-            Register
+          {/* OTP Verification Field (Shown after OTP is sent) */}
+          {otpSent && (
+            <div style={{ marginBottom: "15px" }}>
+              <input
+                type="text"
+                placeholder="Enter 6-Digit OTP Code"
+                value={otp}
+                maxLength={6}
+                required
+                onChange={(e) => setOtp(e.target.value)}
+                style={{ ...styles.input, letterSpacing: '4px', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}
+              />
+              <p style={{ fontSize: '12px', color: '#666', textAlign: 'center', margin: '5px 0 0 0' }}>
+                Didn't receive code?{" "}
+                <span 
+                  onClick={handleSendOtp} 
+                  style={{ color: '#1a73e8', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}
+                >
+                  Resend OTP
+                </span>
+              </p>
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={loading} 
+            style={loading ? { ...styles.button, opacity: 0.7 } : styles.button}
+          >
+            {loading 
+              ? (otpSent ? "Verifying OTP..." : "Sending OTP...") 
+              : (otpSent ? "Verify & Create Account" : "Send Verification Code")
+            }
           </button>
 
           <p style={styles.linkText}>
@@ -145,8 +220,9 @@ const styles = {
     padding: "40px 20px",
   },
   card: {
-    width: "380px",
-    padding: "35px",
+    width: "100%",
+    maxWidth: "380px",
+    padding: "25px",
     background: "#ffffff",
     borderRadius: "12px",
     boxShadow: "0 4px 20px rgba(0,0,0,0.05)",

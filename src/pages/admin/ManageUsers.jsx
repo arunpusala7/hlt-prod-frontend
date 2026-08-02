@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import api from "../../api/api";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatDoctorName } from "../../utils/formatDoctorName";
 
-function ManageDoctors() {
+function ManageUsers() {
   const navigate = useNavigate();
-  const [activeDoctors, setActiveDoctors] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -25,36 +24,36 @@ function ManageDoctors() {
   }, []);
 
   useEffect(() => {
-    fetchActiveDoctors();
+    fetchUsers();
   }, []);
 
-  const fetchActiveDoctors = async () => {
+  const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/api/doctors");
-      setActiveDoctors(res.data || []);
+      const res = await api.get("/api/admin/users");
+      setUsers(res.data || []);
     } catch (e) {
-      toast.error("Failed to load doctor directory");
+      toast.error("Failed to load patient accounts");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteDoctor = async (doctorId, doctorName) => {
-    if (!window.confirm(`Are you sure you want to delete Dr. ${doctorName}? This will remove their account and schedule.`)) {
+  const handleDeleteUser = async (userId, userName) => {
+    if (!window.confirm(`Are you sure you want to delete patient user "${userName}"?`)) {
       return;
     }
     try {
-      await api.delete(`/api/admin/doctors/${doctorId}`);
-      toast.success(`Dr. ${doctorName} account deleted`);
-      fetchActiveDoctors();
+      await api.delete(`/api/admin/users/${userId}`);
+      toast.success(`User "${userName}" account deleted`);
+      fetchUsers();
     } catch (err) {
       if (err.response && err.response.status === 404) {
-        toast.error(`Dr. ${doctorName} has already been deleted.`);
+        toast.error(`User "${userName}" has already been deleted.`);
       } else {
-        toast.error("Failed to delete doctor account");
+        toast.error("Failed to delete user account");
       }
-      fetchActiveDoctors();
+      fetchUsers();
     }
   };
 
@@ -63,12 +62,11 @@ function ManageDoctors() {
     navigate("/");
   };
 
-  const filteredDoctors = activeDoctors.filter((d) => {
+  const filteredUsers = users.filter((u) => {
     const lowerSearch = searchTerm.toLowerCase();
     return (
-      (d.name && d.name.toLowerCase().includes(lowerSearch)) ||
-      (d.specialization && d.specialization.toLowerCase().includes(lowerSearch)) ||
-      (d.email && d.email.toLowerCase().includes(lowerSearch))
+      (u.name && u.name.toLowerCase().includes(lowerSearch)) ||
+      (u.email && u.email.toLowerCase().includes(lowerSearch))
     );
   });
 
@@ -80,7 +78,7 @@ function ManageDoctors() {
           <button onClick={() => navigate("/admin")} style={styles.backBtn}>
             &larr; Back
           </button>
-          <h2 style={styles.topTitle}>Doctor Directory & Account Controls</h2>
+          <h2 style={styles.topTitle}>Registered Patient Accounts</h2>
         </div>
 
         {/* Top Right Profile Icon */}
@@ -116,8 +114,8 @@ function ManageDoctors() {
                 <div style={styles.dropdownItem} onClick={() => { setProfileDropdownOpen(false); navigate("/admin/appointments"); }}>
                   📅 Manage Appointments
                 </div>
-                <div style={styles.dropdownItem} onClick={() => { setProfileDropdownOpen(false); navigate("/admin/users"); }}>
-                  👥 Registered Patients
+                <div style={styles.dropdownItem} onClick={() => { setProfileDropdownOpen(false); navigate("/admin/doctors"); }}>
+                  🏥 Active Doctor List
                 </div>
                 <div style={styles.dropdownItem} onClick={() => { setProfileDropdownOpen(false); navigate("/admin/payments"); }}>
                   💳 Payment Transactions
@@ -142,67 +140,60 @@ function ManageDoctors() {
             <span style={styles.searchIcon}>🔍</span>
             <input
               type="text"
-              placeholder="Search by doctor name, specialization, or email..."
+              placeholder="Search by patient name or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={styles.searchInput}
             />
           </div>
 
-          <button
-            onClick={() => navigate("/admin/add-doctor")}
-            style={styles.addDoctorBtn}
-          >
-            ➕ Onboard New Doctor
-          </button>
+          <div style={styles.countBadge}>
+            Total Patients: {filteredUsers.length}
+          </div>
         </div>
 
-        {/* Doctor List Card */}
+        {/* User List Card */}
         <div style={styles.tableCard}>
           {loading ? (
             <p style={{ textAlign: "center", color: "#64748b", padding: "40px 0", fontSize: "13px" }}>
-              Loading doctor accounts...
+              Loading patient accounts...
             </p>
-          ) : filteredDoctors.length === 0 ? (
+          ) : filteredUsers.length === 0 ? (
             <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <h4 style={{ color: "#0f172a", margin: "0 0 4px 0", fontSize: "16px", fontWeight: "700" }}>No Doctors Found</h4>
-              <p style={{ color: "#64748b", fontSize: "13px", margin: 0 }}>No doctor accounts match your search.</p>
+              <h4 style={{ color: "#0f172a", margin: "0 0 4px 0", fontSize: "16px", fontWeight: "700" }}>No Patient Accounts Found</h4>
+              <p style={{ color: "#64748b", fontSize: "13px", margin: 0 }}>No patient accounts match your search.</p>
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>ID</th>
-                    <th style={styles.th}>Doctor Name</th>
-                    <th style={styles.th}>Specialization</th>
-                    <th style={styles.th}>Login Email</th>
-                    <th style={styles.th}>Consultation Fee</th>
+                    <th style={styles.th}>User ID</th>
+                    <th style={styles.th}>Patient Name</th>
+                    <th style={styles.th}>Registered Email</th>
+                    <th style={styles.th}>Account Role</th>
                     <th style={styles.th}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDoctors.map((d) => (
-                    <tr key={d.id} style={styles.tr}>
-                      <td style={styles.td}>#{d.id}</td>
+                  {filteredUsers.map((u) => (
+                    <tr key={u.id} style={styles.tr}>
+                      <td style={styles.td}>#{u.id}</td>
                       <td style={styles.td}>
-                        <strong style={{ color: "#0f172a" }}>{formatDoctorName(d.name)}</strong>
+                        <strong style={{ color: "#0f172a" }}>{u.name}</strong>
                       </td>
                       <td style={styles.td}>
-                        <span style={styles.specBadge}>{d.specialization}</span>
+                        <span style={styles.emailCode}>{u.email}</span>
                       </td>
                       <td style={styles.td}>
-                        <span style={styles.emailCode}>{d.email}</span>
-                      </td>
-                      <td style={{ ...styles.td, fontWeight: "800", color: "#2563eb" }}>
-                        ₹{d.consultationFee || 500}
+                        <span style={styles.roleBadge}>{u.role || "USER"}</span>
                       </td>
                       <td style={styles.td}>
                         <button
-                          onClick={() => handleDeleteDoctor(d.id, d.name)}
+                          onClick={() => handleDeleteUser(u.id, u.name)}
                           style={styles.deleteBtn}
                         >
-                          🗑️ Delete Account
+                          🗑️ Delete User
                         </button>
                       </td>
                     </tr>
@@ -364,15 +355,13 @@ const styles = {
     background: "transparent",
     color: "#0f172a",
   },
-  addDoctorBtn: {
-    padding: "10px 16px",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    border: "none",
+  countBadge: {
+    padding: "8px 14px",
+    backgroundColor: "#eff6ff",
+    color: "#2563eb",
     borderRadius: "8px",
-    fontSize: "13px",
+    fontSize: "12px",
     fontWeight: "700",
-    cursor: "pointer",
   },
 
   tableCard: {
@@ -404,12 +393,12 @@ const styles = {
     fontSize: "13px",
     color: "#0f172a",
   },
-  specBadge: {
-    backgroundColor: "#eff6ff",
-    color: "#2563eb",
+  roleBadge: {
+    backgroundColor: "#f1f5f9",
+    color: "#475569",
     padding: "3px 8px",
     borderRadius: "6px",
-    fontSize: "12px",
+    fontSize: "11px",
     fontWeight: "700",
   },
   emailCode: {
@@ -429,4 +418,4 @@ const styles = {
   },
 };
 
-export default ManageDoctors;
+export default ManageUsers;

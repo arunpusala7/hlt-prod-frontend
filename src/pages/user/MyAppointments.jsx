@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import CustomDatePicker from "../../components/CustomDatePicker";
 
 function MyAppointments() {
   const [appointments, setAppointments] = useState([]);
@@ -85,8 +86,8 @@ function MyAppointments() {
     setRescheduleModalOpen(true);
   };
 
-  const handleDateChange = async (e) => {
-    const date = e.target.value;
+  const handleDateChange = async (selectedIso) => {
+    const date = typeof selectedIso === 'string' ? selectedIso : selectedIso.target.value;
     setNewDate(date);
     setNewSlot(null);
     
@@ -225,11 +226,11 @@ function MyAppointments() {
               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
               style={styles.modal} onClick={e => e.stopPropagation()}
             >
-              <h3 style={{margin: '0 0 10px 0'}}>📅 Reschedule</h3>
-              <div style={{marginBottom: '15px'}}>
-                <label style={styles.label}>New Date:</label>
-                <input type="date" value={newDate} min={new Date().toISOString().split("T")[0]} onChange={handleDateChange} style={styles.input} />
-              </div>
+              <h3 style={{margin: '0 0 14px 0', color: '#0f172a', fontSize: '16px'}}>Reschedule Appointment</h3>
+              <CustomDatePicker
+                selectedDate={newDate}
+                onChange={handleDateChange}
+              />
               {newDate && (
                 <div style={{marginBottom: '20px'}}>
                   <label style={styles.label}>Available Slots:</label>
@@ -315,58 +316,58 @@ const getStatusStyle = (status) => {
 };
 
 const styles = {
-  container: { maxWidth: "1000px", margin: "40px auto", padding: '0 20px' },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" },
-  title: { color: "#2c3e50", margin: 0 },
-  refreshBtn: { background: "transparent", border: "1px solid #ddd", padding: "8px 15px", borderRadius: "6px", cursor: "pointer", color: "#555" },
-  empty: { textAlign: "center", padding: "40px", background: "#fff", borderRadius: "12px", color: "#888" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "20px" },
-  card: { background: "#fff", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: "1px solid #eaeaea" },
-  cardHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "15px" },
+  container: { maxWidth: "1000px", margin: "0 auto" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" },
+  title: { color: "#0f172a", fontSize: "20px", fontWeight: "700", margin: 0 },
+  refreshBtn: { background: "#ffffff", border: "1px solid #cbd5e1", padding: "8px 14px", borderRadius: "8px", cursor: "pointer", color: "#475569", fontSize: "13px", fontWeight: "600" },
+  empty: { textAlign: "center", padding: "40px", background: "#ffffff", borderRadius: "12px", border: "1px dashed #cbd5e1", color: "#64748b" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" },
+  card: { background: "#ffffff", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.02)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between" },
+  cardHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" },
   docInfo: { display: "flex", alignItems: "center", gap: "10px" },
-  icon: { fontSize: "24px", background: "#f0f4f8", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%" },
-  docName: { margin: "0", fontSize: "16px", color: "#333" },
-  date: { fontSize: "13px", color: "#777" },
-  cardBody: { background: "#f9f9f9", padding: "10px", borderRadius: "8px", marginBottom: "15px" },
-  timeLabel: { margin: "0 0 5px 0", fontSize: "12px", color: "#777" },
-  timeValue: { margin: "0", fontWeight: "600", color: "#333" },
-  badgeBooked: { background: "#e3f2fd", color: "#1565c0", padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: "bold" },
-  badgeCompleted: { background: "#e8f5e9", color: "#2e7d32", padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: "bold" },
-  badgeCancelled: { background: "#ffebee", color: "#c62828", padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: "bold" },
-  badgeRescheduled: { background: "#fff8e1", color: "#f57f17", padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: "bold" },
-  actions: { display: 'flex', gap: '10px' },
-  cancelBtn: { flex: 1, padding: "8px", background: "#fff", border: "1px solid #ffcdd2", color: "#d32f2f", borderRadius: "6px", cursor: "pointer", fontWeight: "600", fontSize: "13px" },
-  rescheduleBtn: { flex: 1, padding: "8px", background: "#e8f0fe", border: "1px solid #1a73e8", color: "#1a73e8", borderRadius: "6px", cursor: "pointer", fontWeight: "600", fontSize: "13px" },
-  prescriptionBtn: { width: "100%", padding: "10px", background: "#1a73e8", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "600", fontSize: "13px" },
-  overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-  modal: { background: 'white', padding: '25px', borderRadius: '15px', width: '90%', maxWidth: '380px' },
-  label: { display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 'bold', color: '#444' },
-  input: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', boxSizing: 'border-box' },
-  select: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', background:'white' },
-  btnDanger: { padding: '10px 20px', background: '#d32f2f', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' },
-  btnCancelText: { padding: '10px 15px', background: 'transparent', color: '#666', border: 'none', cursor: 'pointer', fontSize: '13px' },
-  slotGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' },
-  slot: { padding: '8px', border: '1px solid #ddd', background: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' },
-  slotActive: { padding: '8px', border: '1px solid #1a73e8', background: '#1a73e8', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' },
-  modalActions: { display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' },
-  btnConfirm: { padding: '10px 20px', background: '#1a73e8', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' },
-  btnDisabled: { padding: '10px 20px', background: '#e0e0e0', color: '#999', border: 'none', borderRadius: '8px', cursor: 'not-allowed', fontSize: '13px' },
-  btnCancel: { padding: '10px 15px', background: 'transparent', color: '#666', border: 'none', cursor: 'pointer', fontSize: '13px' },
-  modalPaper: { background: '#eee', padding: '20px', borderRadius: '8px', width: '90%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' },
-  letterhead: { background: 'white', padding: '40px', boxShadow: '0 0 10px rgba(0,0,0,0.1)', color: '#333' },
+  icon: { fontSize: "14px", fontWeight: "bold", color: "#2563eb", background: "#eff6ff", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", border: "1px solid #bfdbfe" },
+  docName: { margin: "0", fontSize: "15px", fontWeight: "700", color: "#0f172a" },
+  date: { fontSize: "12px", color: "#64748b" },
+  cardBody: { background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", marginBottom: "14px", border: "1px solid #f1f5f9" },
+  timeLabel: { margin: "0 0 2px 0", fontSize: "11px", color: "#64748b" },
+  timeValue: { margin: "0", fontWeight: "700", color: "#0f172a", fontSize: "14px" },
+  badgeBooked: { background: "#eff6ff", color: "#1d4ed8", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: "700" },
+  badgeCompleted: { background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: "700" },
+  badgeCancelled: { background: "#fef2f2", color: "#991b1b", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: "700" },
+  badgeRescheduled: { background: "#fef3c7", color: "#92400e", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: "700" },
+  actions: { display: 'flex', gap: '8px' },
+  cancelBtn: { flex: 1, padding: "8px", background: "#ffffff", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: "6px", cursor: "pointer", fontWeight: "600", fontSize: "12px" },
+  rescheduleBtn: { flex: 1, padding: "8px", background: "#eff6ff", border: "1px solid #2563eb", color: "#2563eb", borderRadius: "6px", cursor: "pointer", fontWeight: "600", fontSize: "12px" },
+  prescriptionBtn: { width: "100%", padding: "9px", background: "#2563eb", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "600", fontSize: "13px" },
+  overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+  modal: { background: 'white', padding: '24px', borderRadius: '14px', width: '90%', maxWidth: '380px', boxShadow: "0 20px 40px rgba(0,0,0,0.15)" },
+  label: { display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '700', color: '#0f172a' },
+  input: { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' },
+  select: { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background:'white' },
+  btnDanger: { padding: '10px 18px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' },
+  btnCancelText: { padding: '10px 14px', background: 'transparent', color: '#64748b', border: 'none', cursor: 'pointer', fontSize: '13px' },
+  slotGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' },
+  slot: { padding: '8px', border: '1px solid #cbd5e1', background: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' },
+  slotActive: { padding: '8px', border: '1px solid #2563eb', background: '#2563eb', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '700' },
+  modalActions: { display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' },
+  btnConfirm: { padding: '10px 18px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' },
+  btnDisabled: { padding: '10px 18px', background: '#e2e8f0', color: '#94a3b8', border: 'none', borderRadius: '8px', cursor: 'not-allowed', fontSize: '13px' },
+  btnCancel: { padding: '10px 14px', background: 'transparent', color: '#64748b', border: 'none', cursor: 'pointer', fontSize: '13px' },
+  modalPaper: { background: '#f8fafc', padding: '20px', borderRadius: '12px', width: '95%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' },
+  letterhead: { background: 'white', padding: '30px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', color: '#0f172a', borderRadius: "8px" },
   letterHeader: { textAlign: 'center', marginBottom: '20px' },
   docDetails: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px' },
-  metaLabel: { fontSize: '10px', color: '#888', fontWeight: 'bold', textTransform: 'uppercase' },
-  metaValue: { fontSize: '16px', margin: 0, color: '#222' },
-  specializationBadge: { fontSize: '12px', color: '#1a73e8', background: '#e8f0fe', padding: '2px 8px', borderRadius: '4px' },
-  patientBox: { background: '#f8fbff', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', border: '1px solid #e1f5fe' },
-  rxBody: { minHeight: '150px' },
+  metaLabel: { fontSize: '10px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' },
+  metaValue: { fontSize: '15px', margin: 0, color: '#0f172a', fontWeight: "700" },
+  specializationBadge: { fontSize: '11px', color: '#2563eb', background: '#eff6ff', padding: '2px 8px', borderRadius: '4px' },
+  patientBox: { background: '#f8fafc', padding: '14px', borderRadius: '8px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0' },
+  rxBody: { minHeight: '130px' },
   notesText: { fontSize: '14px', lineHeight: '1.6' },
-  letterFooter: { marginTop: '30px', borderTop: '1px solid #eee', paddingTop: '10px', display: 'flex', justifyContent: 'space-between' },
+  letterFooter: { marginTop: '24px', borderTop: '1px solid #e2e8f0', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   stampContainer: { textAlign: 'right' },
-  stampBox: { border: '2px solid #2e7d32', color: '#2e7d32', padding: '5px', fontWeight: 'bold', transform: 'rotate(-5deg)' },
-  btnDownload: { padding: '12px 25px', background: '#202124', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
-  closeBtn: { background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer' }
+  stampBox: { border: '2px solid #16a34a', color: '#16a34a', padding: '4px 8px', fontWeight: 'bold', borderRadius: '4px' },
+  btnDownload: { padding: '10px 20px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
+  closeBtn: { background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: "#64748b" }
 };
 
 export default MyAppointments;

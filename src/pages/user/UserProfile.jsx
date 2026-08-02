@@ -15,29 +15,36 @@ function UserProfile() {
 
   useEffect(() => {
     // ------------------------------------------------------
-    // 1️⃣ EXTRACT DETAILS FROM JWT
+    // 1️⃣ FETCH PROFILE FROM BACKEND API
     // ------------------------------------------------------
-    const token = localStorage.getItem("token");
-    
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        console.log("Decoded Token:", decoded); // Check console to see what fields you have!
-
-        // Map JWT fields to your UI
-        // Note: Different backends name fields differently. 
-        // Common names: 'sub' (email/username), 'name', 'iat', 'exp'
-        setUser({
-          name: decoded.name || decoded.sub?.split('@')[0] || "Valued User", // Try 'name', fallback to part of email
-          email: decoded.sub || decoded.email || "No Email",
-          role: decoded.role || localStorage.getItem("role") || "USER",
-          sub: decoded.sub || ""
-        });
-        
-      } catch (error) {
-        console.error("Invalid Token", error);
-      }
-    }
+    api.get("/api/user/me")
+      .then(res => {
+        if (res.data) {
+          setUser({
+            name: res.data.name || "Valued User",
+            email: res.data.email || "",
+            role: res.data.role || "USER",
+            sub: res.data.email || ""
+          });
+        }
+      })
+      .catch(err => {
+        console.error("Failed to fetch user profile from API, fallback to JWT", err);
+        const token = localStorage.getItem("token");
+        if (token) {
+          try {
+            const decoded = jwtDecode(token);
+            setUser({
+              name: decoded.name || decoded.sub?.split('@')[0] || "Valued User",
+              email: decoded.sub || decoded.email || "No Email",
+              role: decoded.role || localStorage.getItem("role") || "USER",
+              sub: decoded.sub || ""
+            });
+          } catch (e) {
+            console.error("Invalid Token", e);
+          }
+        }
+      });
 
     // ------------------------------------------------------
     // 2️⃣ GET REAL STATS FROM API
@@ -114,43 +121,44 @@ function UserProfile() {
 const styles = {
   container: { maxWidth: "900px", margin: "0 auto" },
   headerCard: {
-    background: "linear-gradient(135deg, #2c3e50 0%, #000000 100%)",
-    borderRadius: "16px",
-    padding: "40px",
+    backgroundColor: "#ffffff",
+    borderRadius: "14px",
+    padding: "24px 28px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    color: "white",
-    marginBottom: "30px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.15)"
+    marginBottom: "24px",
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.02)"
   },
-  avatarSection: { display: "flex", alignItems: "center", gap: "20px" },
+  avatarSection: { display: "flex", alignItems: "center", gap: "16px" },
   avatarLarge: {
-    width: "80px",
-    height: "80px",
-    background: "rgba(255,255,255,0.2)",
+    width: "60px",
+    height: "60px",
+    backgroundColor: "#eff6ff",
+    color: "#2563eb",
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "32px",
-    fontWeight: "bold",
-    border: "2px solid rgba(255,255,255,0.3)",
+    fontSize: "24px",
+    fontWeight: "800",
+    border: "1px solid #bfdbfe",
     textTransform: "uppercase"
   },
-  name: { margin: "0 0 5px 0", fontSize: "24px", textTransform: "capitalize" },
-  role: { margin: 0, opacity: 0.8, fontSize: "14px", textTransform: "uppercase", letterSpacing: "1px" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))", gap: "25px" },
-  card: { background: "#fff", padding: "30px", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.05)", border: "1px solid #f0f0f0" },
-  cardTitle: { marginTop: 0, color: "#444", borderBottom: "1px solid #eee", paddingBottom: "15px", marginBottom: "20px" },
+  name: { margin: "0 0 2px 0", fontSize: "20px", fontWeight: "700", color: "#0f172a", textTransform: "capitalize" },
+  role: { margin: 0, color: "#64748b", fontSize: "12px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: "600" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" },
+  card: { background: "#ffffff", padding: "24px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(0,0,0,0.02)" },
+  cardTitle: { marginTop: 0, color: "#0f172a", fontSize: "16px", fontWeight: "700", borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", marginBottom: "16px" },
   infoRow: { display: "flex", justifyContent: "space-between", padding: "8px 0" },
-  label: { color: "#888", fontSize: "14px" },
-  value: { color: "#333", fontWeight: "500" },
-  divider: { height: "1px", background: "#f5f5f5", margin: "5px 0" },
+  label: { color: "#64748b", fontSize: "13px" },
+  value: { color: "#0f172a", fontWeight: "600", fontSize: "13px" },
+  divider: { height: "1px", background: "#f1f5f9", margin: "4px 0" },
   statsContainer: { display: "flex", justifyContent: "space-between", textAlign: "center", paddingTop: "10px" },
   statBox: { flex: 1 },
-  statNumber: { display: "block", fontSize: "36px", fontWeight: "bold", color: "#333", marginBottom: "5px" },
-  statLabel: { fontSize: "13px", color: "#888", textTransform: "uppercase", letterSpacing: "0.5px" },
+  statNumber: { display: "block", fontSize: "28px", fontWeight: "800", color: "#0f172a", marginBottom: "2px" },
+  statLabel: { fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: "600" },
 };
 
 export default UserProfile;

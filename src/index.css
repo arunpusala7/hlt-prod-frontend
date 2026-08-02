@@ -241,22 +241,131 @@ li {
 }
 
 /* =========================
-   RESPONSIVE
+   RESPONSIVE & MOBILE FIRST RULES
 ========================= */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent auto-zoom on iOS inputs when focused */
 @media (max-width: 768px) {
-  nav {
+  input, select, textarea, button {
+    font-size: 16px !important;
+  }
+}
+
+/* Responsive Header Rules */
+.landing-nav-container {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+@media (max-width: 768px) {
+  .landing-desktop-links {
+    display: none !important;
+  }
+  .landing-hamburger-btn {
+    display: flex !important;
+  }
+}
+@media (min-width: 769px) {
+  .landing-hamburger-btn {
+    display: none !important;
+  }
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+}
+
+/* =========================
+   MOBILE BOTTOM NAVIGATION BAR
+========================= */
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 62px;
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+    z-index: 999;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 8px;
+  }
+
+  .mobile-nav-item {
+    display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    height: 100%;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+
+  .mobile-nav-item.active {
+    color: #2563eb;
+    font-weight: 700;
+  }
+
+  .mobile-nav-icon {
+    font-size: 18px;
+    margin-bottom: 2px;
+  }
+
+  .desktop-sidebar {
+    display: none !important;
+  }
+
+  .mobile-main-layout {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: calc(100vh - 60px) !important;
+    padding-bottom: 75px !important;
+  }
+
+  .mobile-content-area {
+    padding: 14px 12px !important;
+    margin-bottom: 60px !important;
   }
 
   .container {
-    margin: 20px auto;
+    margin: 10px auto;
+    padding: 0 8px;
+  }
+
+  .card {
+    padding: 16px;
+    border-radius: 12px;
   }
 }
+
 /* =========================
    COMPACT SLOT UI (TTD STYLE)
 ========================= */
-
 .slot-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -264,8 +373,15 @@ li {
   margin-top: 8px;
 }
 
+@media (max-width: 480px) {
+  .slot-grid {
+    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+    gap: 6px;
+  }
+}
+
 .slot-box {
-  padding: 6px 8px;
+  padding: 8px;
   font-size: 13px;
   text-align: center;
   border: 1.5px solid #d1d5db;
@@ -301,14 +417,15 @@ li {
   color: #6b7280;
   margin-top: 8px;
 }
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Optional: Make scrollbars prettier */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: #f1f1f1; 

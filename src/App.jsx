@@ -10,8 +10,11 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AddDoctor from "./pages/admin/AddDoctor";
 import ManageAppointments from "./pages/admin/ManageAppointments";
 import ManageDoctors from "./pages/admin/ManageDoctors";
+import ManageUsers from "./pages/admin/ManageUsers";
+import AdminPayments from "./pages/admin/AdminPayments";
 
 import UserDashboard from "./pages/user/UserDashboard";
+import DoctorProfile from "./pages/user/DoctorProfile";
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 import CancelledPatients from "./pages/doctor/CancelledPatients";
 
@@ -48,9 +51,21 @@ function App() {
             <ProtectedRoute role="ADMIN"><ManageDoctors /></ProtectedRoute>
         } />
 
+        <Route path="/admin/users" element={
+            <ProtectedRoute role="ADMIN"><ManageUsers /></ProtectedRoute>
+        } />
+
+        <Route path="/admin/payments" element={
+            <ProtectedRoute role="ADMIN"><AdminPayments /></ProtectedRoute>
+        } />
+
         {/* ================= USER ROUTES ================= */}
         <Route path="/user" element={
             <ProtectedRoute role="USER"><UserDashboard /></ProtectedRoute>
+        } />
+
+        <Route path="/doctor-profile/:id" element={
+            <ProtectedRoute role="USER"><DoctorProfile /></ProtectedRoute>
         } />
 
         {/* ================= DOCTOR ROUTES ================= */}

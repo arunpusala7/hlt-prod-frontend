@@ -5,12 +5,13 @@ function CreateDoctor() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [specialization, setSpecialization] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !specialization) {
       alert("All fields are required");
       return;
     }
@@ -22,7 +23,7 @@ function CreateDoctor() {
         name,
         email,
         password,
-        role: "DOCTOR", // optional, backend already sets
+        specialization,
       });
 
       alert("Doctor account created successfully");
@@ -31,6 +32,7 @@ function CreateDoctor() {
       setName("");
       setEmail("");
       setPassword("");
+      setSpecialization("");
 
     } catch (err) {
       console.error(err);
@@ -57,6 +59,13 @@ function CreateDoctor() {
           placeholder="Doctor Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          type="text"
+          placeholder="Specialization (e.g. Cardiology)"
+          value={specialization}
+          onChange={(e) => setSpecialization(e.target.value)}
         />
 
         <input
