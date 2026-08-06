@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import toast from "react-hot-toast";
+import api from "../api/api";
 
 const QRScanner = () => {
     const [scanResult, setScanResult] = useState(null);
@@ -37,30 +38,15 @@ const QRScanner = () => {
         const loadingToast = toast.loading("Checking database...");
         
         try {
-            // Adjust port 8080 if your backend runs elsewhere
-            const response = await fetch(`http://localhost:8080/api/appointments/verify/${ticketId}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    // Add Authorization header if your backend requires JWT for this endpoint
-                    // "Authorization": `Bearer ${localStorage.getItem("token")}` 
-                }
-            });
-
-            const data = await response.json();
+            const res = await api.post(`/api/appointments/verify/${ticketId}`);
             toast.dismiss(loadingToast);
-
-            if (response.ok) {
-                toast.success("Check-In Successful!");
-                setStatusData({ success: true, ...data });
-            } else {
-                toast.error(data.message || "Verification Failed");
-                setStatusData({ success: false, message: data.message });
-            }
+            toast.success("Check-In Successful!");
+            setStatusData({ success: true, ...res.data });
         } catch (error) {
             toast.dismiss(loadingToast);
-            toast.error("Connection Error");
-            setStatusData({ success: false, message: "Could not connect to server." });
+            const msg = error.response?.data?.message || "Verification Failed";
+            toast.error(msg);
+            setStatusData({ success: false, message: msg });
         }
     };
 
