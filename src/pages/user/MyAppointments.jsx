@@ -357,10 +357,11 @@ function MyAppointments() {
       </div>
 
       {/* --- CANCEL BOTTOM SHEET (SLIDE UP 75%) --- */}
-      <AnimatePresence>
-        {cancelModalOpen && createPortal(
-          <div 
-            style={styles.sheetOverlay} 
+      {createPortal(
+        <AnimatePresence>
+          {cancelModalOpen && (
+            <div 
+              style={styles.sheetOverlay} 
             onClick={() => setCancelModalOpen(false)}
             onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
           >
@@ -422,16 +423,18 @@ function MyAppointments() {
                 </button>
               </div>
             </motion.div>
-          </div>,
-          document.body
+          </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
 
       {/* --- RESCHEDULE BOTTOM SHEET (SLIDE UP 75% HEIGHT) --- */}
-      <AnimatePresence>
-        {rescheduleModalOpen && createPortal(
-          <div 
-            style={styles.sheetOverlay} 
+      {createPortal(
+        <AnimatePresence>
+          {rescheduleModalOpen && (
+            <div 
+              style={styles.sheetOverlay} 
             onClick={() => setRescheduleModalOpen(false)}
             onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
           >
@@ -511,16 +514,18 @@ function MyAppointments() {
                 </button>
               </div>
             </motion.div>
-          </div>,
-          document.body
+          </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
 
       {/* --- PRESCRIPTION BOTTOM SHEET (SLIDE UP 75% HEIGHT) --- */}
-      <AnimatePresence>
-        {prescriptionModalOpen && selectedPrescriptionAppt && createPortal(
-          <div 
-            style={styles.sheetOverlay} 
+      {createPortal(
+        <AnimatePresence>
+          {prescriptionModalOpen && selectedPrescriptionAppt && (
+            <div 
+              style={styles.sheetOverlay} 
             onClick={() => setPrescriptionModalOpen(false)}
             onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
           >
@@ -602,10 +607,11 @@ function MyAppointments() {
                 </button>
               </div>
             </motion.div>
-          </div>,
-          document.body
+          </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
 
       {/* --- CONSULTATION PASS MODAL --- */}
       <AnimatePresence>

@@ -621,51 +621,53 @@ function UserProfile() {
       </div>
 
       {/* Large Scannable Digital ID Pass Modal */}
-      <AnimatePresence>
-        {showQrModal && createPortal(
-          <div style={styles.modalBackdrop} onClick={() => setShowQrModal(false)}>
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              style={styles.qrModalCard}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={styles.qrModalHeader}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#0F172A" }}>
-                    Patient Digital Pass
-                  </h3>
-                  <span style={{ fontSize: "12px", color: "#64748B" }}>Scan at hospital check-in kiosk</span>
+      {createPortal(
+        <AnimatePresence>
+          {showQrModal && (
+            <div style={styles.modalBackdrop} onClick={() => setShowQrModal(false)}>
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                style={styles.qrModalCard}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={styles.qrModalHeader}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#0F172A" }}>
+                      Patient Digital Pass
+                    </h3>
+                    <span style={{ fontSize: "12px", color: "#64748B" }}>Scan at hospital check-in kiosk</span>
+                  </div>
+                  <button style={styles.closeBtn} onClick={() => setShowQrModal(false)}>✕</button>
                 </div>
-                <button style={styles.closeBtn} onClick={() => setShowQrModal(false)}>✕</button>
-              </div>
 
-              <div style={styles.qrLargeBox}>
-                <QRCodeCanvas 
-                  value={`HEALTHCONNECT:${user.memberId}:${user.name}:${user.email}`}
-                  size={180}
-                  level="H"
-                />
-              </div>
+                <div style={styles.qrLargeBox}>
+                  <QRCodeCanvas 
+                    value={`HEALTHCONNECT:${user.memberId}:${user.name}:${user.email}`}
+                    size={180}
+                    level="H"
+                  />
+                </div>
 
-              <div style={{ textAlign: "center", marginTop: "16px" }}>
-                <span style={{ fontSize: "15px", fontWeight: "800", color: "#0F172A", display: "block" }}>
-                  {user.name}
-                </span>
-                <span style={{ fontSize: "12px", color: "#3B82F6", fontWeight: "700" }}>
-                  {user.memberId}
-                </span>
-              </div>
+                <div style={{ textAlign: "center", marginTop: "16px" }}>
+                  <span style={{ fontSize: "15px", fontWeight: "800", color: "#0F172A", display: "block" }}>
+                    {user.name}
+                  </span>
+                  <span style={{ fontSize: "12px", color: "#3B82F6", fontWeight: "700" }}>
+                    {user.memberId}
+                  </span>
+                </div>
 
-              <button style={styles.qrModalCloseBtn} onClick={() => setShowQrModal(false)}>
-                Done
-              </button>
-            </motion.div>
-          </div>,
-          document.body
-        )}
-      </AnimatePresence>
+                <button style={styles.qrModalCloseBtn} onClick={() => setShowQrModal(false)}>
+                  Done
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }

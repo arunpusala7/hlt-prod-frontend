@@ -1072,10 +1072,11 @@ function UserOverview({
       {/* =====================================================================
           IN-PAGE MODAL 1: DOCTOR DETAILS & BOOKING (Screen 3 Matching Design)
           ===================================================================== */}
-      <AnimatePresence>
-        {bookingDoctor && createPortal(
-          <motion.div 
-            className="swiggy-sheet-backdrop"
+      {createPortal(
+        <AnimatePresence>
+          {bookingDoctor && (
+            <motion.div 
+              className="swiggy-sheet-backdrop"
             style={styles.bottomSheetBackdrop}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1314,18 +1315,20 @@ function UserOverview({
                 </button>
               </div>
             </motion.div>
-          </motion.div>,
-          document.body
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* =====================================================================
           CUSTOM CALENDAR BOTTOM SHEET (Smooth, Clean & Modern)
           ===================================================================== */}
-      <AnimatePresence>
-        {showCustomCalendar && createPortal(
-          <div 
-            style={styles.calendarModalOverlay} 
+      {createPortal(
+        <AnimatePresence>
+          {showCustomCalendar && (
+            <div 
+              style={styles.calendarModalOverlay} 
             onClick={() => setShowCustomCalendar(false)}
             onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
           >
@@ -1459,10 +1462,11 @@ function UserOverview({
                 </div>
               </div>
             </motion.div>
-          </div>,
-          document.body
+          </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
 
       {/* =====================================================================
           IN-PAGE MODAL 2: BOARDING-PASS RECEIPT VOUCHER
@@ -1479,10 +1483,11 @@ function UserOverview({
       {/* =====================================================================
           IN-PAGE MODAL 3: IN-CONTEXT CANCELLATION CONFIRMATION (75% BOTTOM SHEET)
           ===================================================================== */}
-      <AnimatePresence>
-        {cancellingAppt && createPortal(
-          <div 
-            style={styles.sheetOverlay} 
+      {createPortal(
+        <AnimatePresence>
+          {cancellingAppt && (
+            <div 
+              style={styles.sheetOverlay} 
             onClick={() => setCancellingAppt(null)}
             onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
           >
@@ -1553,18 +1558,20 @@ function UserOverview({
                 </button>
               </div>
             </motion.div>
-          </div>,
-          document.body
+          </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
 
       {/* =====================================================================
           IN-PAGE MODAL 4: IN-CONTEXT RESCHEDULE (75% BOTTOM SHEET)
           ===================================================================== */}
-      <AnimatePresence>
-        {reschedulingAppt && createPortal(
-          <div 
-            style={styles.sheetOverlay} 
+      {createPortal(
+        <AnimatePresence>
+          {reschedulingAppt && (
+            <div 
+              style={styles.sheetOverlay} 
             onClick={() => setReschedulingAppt(null)}
             onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
           >
@@ -1697,10 +1704,11 @@ function UserOverview({
                 </button>
               </div>
             </motion.div>
-          </div>,
-          document.body
+          </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
     </div>
   );
 }

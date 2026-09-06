@@ -400,10 +400,11 @@ function DoctorProfile() {
           </button>
         </div>
         {/* Custom Calendar Bottom Sheet */}
-        <AnimatePresence>
-          {showCustomCalendar && createPortal(
-            <div 
-              style={styles.calendarModalOverlay} 
+        {createPortal(
+          <AnimatePresence>
+            {showCustomCalendar && (
+              <div 
+                style={styles.calendarModalOverlay} 
               onClick={() => setShowCustomCalendar(false)}
             >
               <motion.div
@@ -536,10 +537,11 @@ function DoctorProfile() {
                   </div>
                 </div>
               </motion.div>
-            </div>,
-            document.body
+            </div>
           )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
       </div>
     </div>
   );
