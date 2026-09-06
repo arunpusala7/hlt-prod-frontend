@@ -19,7 +19,7 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
       const iso = d.toISOString().split("T")[0];
       const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
       const dateNum = d.getDate();
-      dates.push({ iso, dayName, dateNum });
+      dates.push({ iso, isoDate: iso, dayName, dateNum });
     }
     return dates;
   }, []);
@@ -64,6 +64,7 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
         <span style={styles.label}>Select Date</span>
         <button 
           onClick={() => setShowCalendarModal(!showCalendarModal)}
+          className="tactile-card"
           style={styles.calendarToggleBtn}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.2">
@@ -79,11 +80,12 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
       {/* Horizontal Day Strip (Screen 3 Style) */}
       <div style={styles.stripContainer}>
         {quickDates.map((item) => {
-          const isSelected = selectedDate === item.isoDate;
+          const isSelected = selectedDate === (item.iso || item.isoDate);
           return (
             <div
-              key={item.isoDate}
-              onClick={() => onChange(item.isoDate)}
+              key={item.iso}
+              onClick={() => onChange(item.iso)}
+              className="tactile-card"
               style={isSelected ? styles.stripPillActive : styles.stripPillInactive}
             >
               <span style={isSelected ? styles.dayActive : styles.dayInactive}>{item.dayName}</span>
@@ -196,14 +198,16 @@ const styles = {
     minWidth: "52px",
     height: "64px",
     borderRadius: "9999px",
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #F1F5F9",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    border: "1px solid rgba(255, 255, 255, 0.9)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
-    boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)",
+    boxShadow: "0 2px 6px rgba(15, 23, 42, 0.03)",
     flexShrink: 0,
   },
   dayActive: {
@@ -233,8 +237,9 @@ const styles = {
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    backgroundColor: "rgba(15, 23, 42, 0.4)",
-    backdropFilter: "blur(6px)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backdropFilter: "blur(8px)",
+    WebkitBackdropFilter: "blur(8px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -242,12 +247,15 @@ const styles = {
     padding: "16px",
   },
   modalCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    backdropFilter: "blur(24px) saturate(180%)",
+    WebkitBackdropFilter: "blur(24px) saturate(180%)",
     borderRadius: "24px",
     padding: "24px",
     width: "100%",
     maxWidth: "340px",
-    boxShadow: "0 20px 40px rgba(15, 23, 42, 0.15)",
+    border: "1px solid rgba(255, 255, 255, 0.8)",
+    boxShadow: "0 24px 48px rgba(15, 23, 42, 0.16), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)",
   },
   modalHeader: {
     display: "flex",

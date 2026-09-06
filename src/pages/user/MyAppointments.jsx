@@ -8,11 +8,13 @@ import CustomDatePicker from "../../components/CustomDatePicker";
 import { formatDoctorName } from "../../utils/formatDoctorName";
 import { getDoctorPortrait } from "../../utils/doctorAvatars";
 import AppointmentReceipt from "./AppointmentReceipt";
+import CancelReasonDropdown from "../../components/CancelReasonDropdown";
 
 function MyAppointments() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewingReceiptAppt, setViewingReceiptAppt] = useState(null);
+  const [filterTab, setFilterTab] = useState("ALL");
 
   // --- Reschedule State ---
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
@@ -56,6 +58,26 @@ function MyAppointments() {
   useEffect(() => {
     loadAppointments();
   }, [loadAppointments]);
+
+  // Lock background body scroll completely whenever any sheet or modal is active
+  const isAnySheetOpen = Boolean(cancelModalOpen || rescheduleModalOpen || prescriptionModalOpen || viewingReceiptAppt);
+  useEffect(() => {
+    if (isAnySheetOpen) {
+      const originalOverflow = document.body.style.overflow;
+      const originalOverscroll = document.body.style.overscrollBehavior;
+      const originalTouchAction = document.body.style.touchAction;
+
+      document.body.style.overflow = "hidden";
+      document.body.style.overscrollBehavior = "none";
+      document.body.style.touchAction = "none";
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.overscrollBehavior = originalOverscroll;
+        document.body.style.touchAction = originalTouchAction;
+      };
+    }
+  }, [isAnySheetOpen]);
 
   // --- 1. Cancellation Logic ---
   const initiateCancel = (appt) => {
@@ -116,14 +138,16 @@ function MyAppointments() {
 
   const handleConfirmReschedule = async () => {
     if (!newDate || !newSlot) return;
-    const toastId = toast.loading("Rescheduling...");
+    const toastId = toast.loading("Rescheduling & generating new pass...");
     try {
-      await api.put(`/api/reschedule/${selectedAppt.appointmentId}`, {
+      const res = await api.put(`/api/reschedule/${selectedAppt.appointmentId}`, {
         newDate,
         startTime: newSlot.startTime.substring(0, 5),
         endTime: newSlot.endTime.substring(0, 5)
       });
-      toast.success("Rescheduled Successfully!", { id: toastId });
+      const newTicketId = res.data?.ticketId;
+      const shortId = newTicketId && newTicketId.length >= 8 ? newTicketId.substring(0, 8) : (newTicketId || "");
+      toast.success(shortId ? `Rescheduled! New Ticket #${shortId} & QR sent to email 📧` : "Rescheduled Successfully!", { id: toastId });
       setRescheduleModalOpen(false);
       loadAppointments();
     } catch {
@@ -165,17 +189,63 @@ function MyAppointments() {
     }
   };
 
+  const filteredAppointments = appointments.filter((a) => {
+    if (filterTab === "ALL") return true;
+    if (filterTab === "UPCOMING") return a.status === "BOOKED" || a.status === "RESCHEDULED";
+    if (filterTab === "COMPLETED") return a.status === "COMPLETED";
+    if (filterTab === "CANCELLED") return a.status === "CANCELLED";
+    return true;
+  });
+
+  const counts = {
+    ALL: appointments.length,
+    UPCOMING: appointments.filter(a => a.status === "BOOKED" || a.status === "RESCHEDULED").length,
+    COMPLETED: appointments.filter(a => a.status === "COMPLETED").length,
+    CANCELLED: appointments.filter(a => a.status === "CANCELLED").length,
+  };
+
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h2 style={styles.title}>Consultation Schedule</h2>
-          <p style={styles.subtitle}>Track your upcoming visits and past prescriptions</p>
+    <div className="schedule-page-container" style={styles.container}>
+      {/* Fixed Sticky Header with Top Breathing Spacing */}
+      <div className="schedule-sticky-header">
+        <div style={styles.headerTopRow}>
+          <div>
+            <h2 style={styles.title}>Consultation Schedule</h2>
+            <p style={styles.subtitle}>Track your upcoming visits, passes, and prescriptions</p>
+          </div>
+          <motion.button 
+            whileTap={{ scale: 0.94 }}
+            style={styles.refreshBtn} 
+            onClick={loadAppointments} 
+            title="Refresh Appointments"
+          >
+            ↻ Sync
+          </motion.button>
         </div>
-        <button style={styles.refreshBtn} onClick={loadAppointments} title="Refresh Appointments">
-          ↻ Sync
-        </button>
+
+        {/* Filter Pills Strip */}
+        <div style={styles.filterStrip}>
+          {[
+            { id: "ALL", label: "All" },
+            { id: "UPCOMING", label: "Upcoming" },
+            { id: "COMPLETED", label: "Completed" },
+            { id: "CANCELLED", label: "Cancelled" },
+          ].map((tab) => {
+            const isActive = filterTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setFilterTab(tab.id)}
+                style={isActive ? styles.filterTabActive : styles.filterTabInactive}
+              >
+                <span>{tab.label}</span>
+                <span style={isActive ? styles.filterCountActive : styles.filterCountInactive}>
+                  {counts[tab.id] || 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {loading && (
@@ -184,55 +254,63 @@ function MyAppointments() {
         </div>
       )}
 
-      {!loading && appointments.length === 0 && (
+      {!loading && filteredAppointments.length === 0 && (
         <div className="glass-card" style={styles.emptyCard}>
           <div style={{ fontSize: "36px", marginBottom: "10px" }}>📅</div>
-          <h3 style={{ margin: "0 0 6px 0", fontSize: "16px", color: "#0F172A" }}>No Consultations Found</h3>
-          <p style={{ margin: 0, fontSize: "13px", color: "#64748B" }}>You haven't booked any doctor visits yet.</p>
+          <h3 style={{ margin: "0 0 6px 0", fontSize: "16px", color: "#0F172A" }}>
+            {filterTab === "ALL" ? "No Consultations Found" : `No ${filterTab.toLowerCase()} consultations`}
+          </h3>
+          <p style={{ margin: 0, fontSize: "13px", color: "#64748B" }}>
+            {filterTab === "ALL" 
+              ? "You haven't booked any doctor visits yet." 
+              : `You have no consultations marked as ${filterTab.toLowerCase()}.`}
+          </p>
         </div>
       )}
 
-      {/* Appointment Cards List */}
-      <div style={styles.listGrid}>
-        {appointments.map((a) => (
+      {/* Appointment Cards List / Grid */}
+      <div className="schedule-cards-grid">
+        {filteredAppointments.map((a) => (
           <motion.div 
             key={a.appointmentId} 
             whileHover={{ y: -2 }}
-            className="glass-card" 
+            className="glass-card schedule-card-desktop" 
             style={styles.card}
           >
-            <div style={styles.cardTopRow}>
-              <div style={styles.docRow}>
-                <div style={styles.docAvatar}>
-                  <img 
-                    src={getDoctorPortrait(a.doctorId, a.doctorName)} 
-                    alt={a.doctorName} 
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
+            <div>
+              <div style={styles.cardTopRow}>
+                <div style={styles.docRow}>
+                  <div style={styles.docAvatar}>
+                    <img 
+                      src={getDoctorPortrait(a.doctorId, a.doctorName)} 
+                      alt={a.doctorName} 
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </div>
+                  <div>
+                    <h4 style={styles.docName}>{formatDoctorName(a.doctorName)}</h4>
+                    <span 
+                      style={{ ...styles.ticketTag, cursor: "pointer" }} 
+                      onClick={() => setViewingReceiptAppt(a)}
+                      title="Click to view full pass"
+                    >
+                      Ticket #{a.ticketId ? a.ticketId.substring(0, 8) : 'TCK'} ↗
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h4 style={styles.docName}>{formatDoctorName(a.doctorName)}</h4>
-                  <span 
-                    style={{ ...styles.ticketTag, cursor: "pointer" }} 
-                    onClick={() => setViewingReceiptAppt(a)}
-                    title="Click to view full pass"
-                  >
-                    Ticket #{a.ticketId ? a.ticketId.substring(0, 8) : 'TCK'} ↗
-                  </span>
-                </div>
+
+                {getStatusBadge(a.status)}
               </div>
 
-              {getStatusBadge(a.status)}
-            </div>
-
-            <div style={styles.detailsBox}>
-              <div style={styles.detailItem}>
-                <span style={styles.detailLabel}>Date</span>
-                <span style={styles.detailVal}>{a.date}</span>
-              </div>
-              <div style={styles.detailItem}>
-                <span style={styles.detailLabel}>Time</span>
-                <span style={styles.detailVal}>{a.startTime} - {a.endTime || '---'}</span>
+              <div style={styles.detailsBox}>
+                <div style={styles.detailItem}>
+                  <span style={styles.detailLabel}>Date</span>
+                  <span style={styles.detailVal}>{a.date}</span>
+                </div>
+                <div style={styles.detailItem}>
+                  <span style={styles.detailLabel}>Time</span>
+                  <span style={styles.detailVal}>{(a.startTime || "").substring(0, 5)} - {(a.endTime || "---").substring(0, 5)}</span>
+                </div>
               </div>
             </div>
 
@@ -240,58 +318,101 @@ function MyAppointments() {
             <div style={styles.actionsRow}>
               {(a.status === "BOOKED" || a.status === "RESCHEDULED") && (
                 <>
-                  <button style={styles.btnPass} onClick={() => setViewingReceiptAppt(a)}>
+                  <motion.button 
+                    whileTap={{ scale: 0.96 }}
+                    style={styles.btnPass} 
+                    onClick={() => setViewingReceiptAppt(a)}
+                  >
                     View Pass 🎟️
-                  </button>
-                  <button style={styles.btnCancel} onClick={() => initiateCancel(a)}>
+                  </motion.button>
+                  <motion.button 
+                    whileTap={{ scale: 0.96 }}
+                    style={styles.btnCancel} 
+                    onClick={() => initiateCancel(a)}
+                  >
                     Cancel
-                  </button>
-                  <button style={styles.btnReschedule} onClick={() => openRescheduleModal(a)}>
-                    Reschedule
-                  </button>
+                  </motion.button>
+                  <motion.button 
+                    whileTap={{ scale: 0.96 }}
+                    style={styles.btnReschedule} 
+                    onClick={() => openRescheduleModal(a)}
+                  >
+                    Reschedule ↻
+                  </motion.button>
                 </>
               )}
               {a.status === "COMPLETED" && (
-                <button style={styles.btnPrescription} onClick={() => openPrescriptionModal(a)}>
+                <motion.button 
+                  whileTap={{ scale: 0.96 }}
+                  style={styles.btnPrescription} 
+                  onClick={() => openPrescriptionModal(a)}
+                >
                   📄 View Digital Prescription
-                </button>
+                </motion.button>
               )}
             </div>
           </motion.div>
         ))}
       </div>
 
-      {/* --- CANCEL MODAL --- */}
+      {/* --- CANCEL BOTTOM SHEET (SLIDE UP 75%) --- */}
       <AnimatePresence>
         {cancelModalOpen && (
-          <div style={styles.overlay} onClick={() => setCancelModalOpen(false)}>
+          <div 
+            style={styles.sheetOverlay} 
+            onClick={() => setCancelModalOpen(false)}
+            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
+          >
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              exit={{ scale: 0.95, opacity: 0 }}
-              style={styles.modal} 
+              initial={{ y: "100%" }} 
+              animate={{ y: 0 }} 
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              style={styles.bottomSheetCancel} 
               onClick={e => e.stopPropagation()}
             >
-              <h3 style={styles.modalTitle}>Cancel Appointment 🚫</h3>
-              <p style={styles.modalSub}>
-                Please confirm why you are cancelling with {formatDoctorName(apptToCancel?.doctorName)}.
-              </p>
-
-              <div style={{ marginBottom: "20px" }}>
-                <label style={styles.fieldLabel}>Reason for Cancellation:</label>
-                <select 
-                  style={styles.selectInput} 
-                  value={cancelReason} 
-                  onChange={(e) => setCancelReason(e.target.value)}
-                >
-                  <option value="">-- Select a Reason --</option>
-                  {cancellationReasons.map((r, i) => (
-                    <option key={i} value={r}>{r}</option>
-                  ))}
-                </select>
+              {/* Drag Handle */}
+              <div style={styles.sheetHandleRow} onClick={() => setCancelModalOpen(false)}>
+                <div style={styles.sheetDragPill}></div>
               </div>
 
-              <div style={styles.modalBtns}>
+              <div style={styles.sheetBody}>
+                <div style={{ textAlign: "center", margin: "4px 0 16px 0" }}>
+                  <div style={{ fontSize: "34px", marginBottom: "6px" }}>⚠️</div>
+                  <h3 style={styles.modalTitle}>Cancel Appointment?</h3>
+                  <p style={styles.modalSub}>
+                    Please confirm why you are cancelling with <strong>{formatDoctorName(apptToCancel?.doctorName)}</strong>.
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: "18px" }}>
+                  <label style={styles.fieldLabel}>Reason for Cancellation:</label>
+                  <CancelReasonDropdown 
+                    value={cancelReason} 
+                    onChange={(val) => setCancelReason(val)}
+                  />
+                </div>
+
+                {/* Consultation Details Summary */}
+                {apptToCancel && (
+                  <div style={{ backgroundColor: "#F8FAFC", borderRadius: "14px", padding: "14px", border: "1px solid #E2E8F0", fontSize: "13px", color: "#475569" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <span>Doctor:</span>
+                      <strong style={{ color: "#0F172A" }}>{formatDoctorName(apptToCancel.doctorName)}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <span>Date & Time:</span>
+                      <strong style={{ color: "#0F172A" }}>{apptToCancel.date} &bull; {apptToCancel.startTime ? apptToCancel.startTime.substring(0, 5) : "--:--"}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>Ticket ID:</span>
+                      <span style={{ fontFamily: "monospace", color: "#2563EB", fontWeight: "700" }}>#{apptToCancel.ticketId ? apptToCancel.ticketId.substring(0, 8) : "HC"}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.sheetStickyBottom}>
                 <button onClick={() => setCancelModalOpen(false)} style={styles.modalCancelPill}>
                   Keep Appointment
                 </button>
@@ -304,51 +425,78 @@ function MyAppointments() {
         )}
       </AnimatePresence>
 
-      {/* --- RESCHEDULE MODAL --- */}
+      {/* --- RESCHEDULE BOTTOM SHEET (SLIDE UP 75% HEIGHT) --- */}
       <AnimatePresence>
         {rescheduleModalOpen && (
-          <div style={styles.overlay} onClick={() => setRescheduleModalOpen(false)}>
+          <div 
+            style={styles.sheetOverlay} 
+            onClick={() => setRescheduleModalOpen(false)}
+            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
+          >
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              exit={{ scale: 0.95, opacity: 0 }}
-              style={styles.modal} 
+              initial={{ y: "100%" }} 
+              animate={{ y: 0 }} 
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              style={styles.bottomSheet75} 
               onClick={e => e.stopPropagation()}
             >
-              <h3 style={styles.modalTitle}>Reschedule Consultation</h3>
-              <p style={styles.modalSub}>Pick a new date and available slot.</p>
+              {/* Drag Handle */}
+              <div style={styles.sheetHandleRow} onClick={() => setRescheduleModalOpen(false)}>
+                <div style={styles.sheetDragPill}></div>
+              </div>
 
-              <CustomDatePicker
-                selectedDate={newDate}
-                onChange={handleDateChange}
-              />
-
-              {newDate && (
-                <div style={{ margin: "18px 0" }}>
-                  <label style={styles.fieldLabel}>Available Slots for {newDate}:</label>
-                  {loadingSlots ? (
-                    <p style={{ fontSize: '12px', color: '#64748B' }}>Loading slots...</p>
-                  ) : (
-                    <div style={styles.slotsGrid}>
-                      {availableSlots.length > 0 ? availableSlots.map((slot, idx) => (
-                        <button 
-                          key={idx} 
-                          onClick={() => setNewSlot(slot)} 
-                          style={newSlot === slot ? styles.slotActive : styles.slotNormal}
-                        >
-                          {slot.startTime.substring(0, 5)}
-                        </button>
-                      )) : (
-                        <p style={{ fontSize: '12px', color: '#DC2626' }}>No slots available on this date.</p>
-                      )}
-                    </div>
-                  )}
+              <div style={styles.sheetBody}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
+                  <div>
+                    <h3 style={styles.modalTitle}>Reschedule Consultation ↻</h3>
+                    <p style={styles.modalSub}>Pick a new date and available slot. A new QR code & pass will be issued.</p>
+                  </div>
+                  <button 
+                    onClick={() => setRescheduleModalOpen(false)}
+                    style={{ background: "none", border: "none", fontSize: "18px", color: "#94A3B8", cursor: "pointer", padding: "4px" }}
+                    title="Close"
+                  >
+                    ✕
+                  </button>
                 </div>
-              )}
 
-              <div style={styles.modalBtns}>
+                <CustomDatePicker
+                  selectedDate={newDate}
+                  onChange={handleDateChange}
+                />
+
+                {newDate && (
+                  <div style={{ margin: "18px 0" }}>
+                    <label style={styles.fieldLabel}>Available Slots for {newDate}:</label>
+                    {loadingSlots ? (
+                      <p style={{ fontSize: '12px', color: '#64748B', textAlign: "center", padding: "14px 0" }}>
+                        Checking doctor schedule...
+                      </p>
+                    ) : (
+                      <div style={styles.slotsGrid}>
+                        {availableSlots.length > 0 ? availableSlots.map((slot, idx) => (
+                          <button 
+                            key={idx} 
+                            onClick={() => setNewSlot(slot)} 
+                            style={newSlot === slot ? styles.slotActive : styles.slotNormal}
+                          >
+                            {slot.startTime.substring(0, 5)}
+                          </button>
+                        )) : (
+                          <p style={{ fontSize: '12px', color: '#DC2626', gridColumn: "1 / -1", textAlign: "center", padding: "12px 0" }}>
+                            No slots available on this date. Please pick another date.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.sheetStickyBottom}>
                 <button onClick={() => setRescheduleModalOpen(false)} style={styles.modalCancelPill}>
-                  Cancel
+                  Dismiss
                 </button>
                 <button 
                   onClick={handleConfirmReschedule} 
@@ -366,7 +514,11 @@ function MyAppointments() {
       {/* --- PRESCRIPTION MODAL --- */}
       <AnimatePresence>
         {prescriptionModalOpen && selectedPrescriptionAppt && (
-          <div style={styles.overlay} onClick={() => setPrescriptionModalOpen(false)}>
+          <div 
+            style={styles.overlay} 
+            onClick={() => setPrescriptionModalOpen(false)}
+            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
+          >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }} 
               animate={{ scale: 1, opacity: 1 }} 
@@ -423,8 +575,66 @@ function MyAppointments() {
 
 const styles = {
   container: {
-    maxWidth: "520px",
+    width: "100%",
     margin: "0 auto",
+  },
+  headerTopRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "12px",
+  },
+  filterStrip: {
+    display: "flex",
+    gap: "8px",
+    overflowX: "auto",
+    paddingBottom: "4px",
+    scrollbarWidth: "none",
+  },
+  filterTabActive: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    backgroundColor: "#3B82F6",
+    color: "#FFFFFF",
+    padding: "6px 14px",
+    borderRadius: "9999px",
+    fontSize: "12px",
+    fontWeight: "700",
+    border: "none",
+    cursor: "pointer",
+    boxShadow: "0 2px 8px rgba(59, 130, 246, 0.35)",
+    whiteSpace: "nowrap",
+  },
+  filterTabInactive: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    backgroundColor: "var(--input-bg, #FFFFFF)",
+    color: "#64748B",
+    padding: "6px 14px",
+    borderRadius: "9999px",
+    fontSize: "12px",
+    fontWeight: "600",
+    border: "1px solid #E2E8F0",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  filterCountActive: {
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    color: "#FFFFFF",
+    padding: "1px 6px",
+    borderRadius: "9999px",
+    fontSize: "10px",
+    fontWeight: "800",
+  },
+  filterCountInactive: {
+    backgroundColor: "#F1F5F9",
+    color: "#475569",
+    padding: "1px 6px",
+    borderRadius: "9999px",
+    fontSize: "10px",
+    fontWeight: "700",
   },
   header: {
     display: "flex",
@@ -444,15 +654,17 @@ const styles = {
     margin: "4px 0 0 0",
   },
   refreshBtn: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--card-bg, #FFFFFF)",
+    backdropFilter: "var(--card-blur, blur(10px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(10px))",
     color: "#3B82F6",
-    border: "1px solid #E2E8F0",
+    border: "var(--card-border, 1px solid #E2E8F0)",
     padding: "8px 16px",
     borderRadius: "9999px",
     fontSize: "12px",
     fontWeight: "700",
     cursor: "pointer",
-    boxShadow: "0 2px 6px rgba(15, 23, 42, 0.03)",
+    boxShadow: "var(--card-shadow, 0 2px 6px rgba(15, 23, 42, 0.03))",
   },
   emptyCard: {
     padding: "40px 20px",
@@ -506,7 +718,8 @@ const styles = {
   detailsBox: {
     display: "flex",
     gap: "16px",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "var(--input-bg, #F8FAFC)",
+    border: "var(--card-border, 1px solid #E2E8F0)",
     padding: "12px 16px",
     borderRadius: "14px",
     marginBottom: "14px",
@@ -528,37 +741,47 @@ const styles = {
   },
   actionsRow: {
     display: "flex",
-    gap: "10px",
+    alignItems: "center",
+    gap: "8px",
+    marginTop: "6px",
+    flexWrap: "wrap",
   },
   btnCancel: {
     flex: 1,
-    padding: "9px",
+    minWidth: "75px",
+    padding: "7px 12px",
     borderRadius: "9999px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--card-bg, #FFFFFF)",
     color: "#DC2626",
-    border: "1px solid #FCA5A5",
-    fontSize: "12px",
-    fontWeight: "700",
+    border: "1px solid #FECACA",
+    fontSize: "11px",
+    fontWeight: "600",
     cursor: "pointer",
+    textAlign: "center",
+    transition: "all 0.15s ease",
   },
   btnReschedule: {
     flex: 1,
-    padding: "9px",
+    minWidth: "100px",
+    padding: "7px 14px",
     borderRadius: "9999px",
     backgroundColor: "#3B82F6",
     color: "#FFFFFF",
-    fontSize: "12px",
+    fontSize: "11px",
     fontWeight: "700",
     cursor: "pointer",
-    boxShadow: "0 3px 10px rgba(59, 130, 246, 0.3)",
+    border: "none",
+    boxShadow: "0 2px 6px rgba(59, 130, 246, 0.25)",
+    textAlign: "center",
+    transition: "all 0.15s ease",
   },
   btnPass: {
-    padding: "7px 15px",
+    padding: "7px 14px",
     borderRadius: "9999px",
     backgroundColor: "#EFF6FF",
     border: "1px solid #BFDBFE",
     color: "#2563EB",
-    fontSize: "12px",
+    fontSize: "11px",
     fontWeight: "700",
     cursor: "pointer",
     display: "inline-flex",
@@ -578,7 +801,7 @@ const styles = {
     boxShadow: "0 3px 10px rgba(22, 163, 74, 0.3)",
   },
 
-  // Modals
+  // Modals & 75% Bottom Sheets
   overlay: {
     position: "fixed",
     inset: 0,
@@ -589,14 +812,91 @@ const styles = {
     justifyContent: "center",
     zIndex: 2000,
     padding: "16px",
+    touchAction: "none",
+  },
+  sheetOverlay: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    zIndex: 2000,
+    touchAction: "none",
+    userSelect: "none",
+  },
+  bottomSheet75: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "28px 28px 0 0",
+    width: "100%",
+    maxWidth: "520px",
+    height: "75vh",
+    maxHeight: "75vh",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.22)",
+    border: "1px solid rgba(226, 232, 240, 0.95)",
+    borderBottom: "none",
+    overflow: "hidden",
+  },
+  bottomSheetCancel: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "28px 28px 0 0",
+    width: "100%",
+    maxWidth: "520px",
+    maxHeight: "75vh",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.22)",
+    border: "1px solid rgba(226, 232, 240, 0.95)",
+    borderBottom: "none",
+    overflow: "hidden",
+  },
+  sheetHandleRow: {
+    width: "100%",
+    padding: "14px 0 8px 0",
+    display: "flex",
+    justifyContent: "center",
+    cursor: "pointer",
+    backgroundColor: "#FFFFFF",
+    flexShrink: 0,
+  },
+  sheetDragPill: {
+    width: "44px",
+    height: "5px",
+    borderRadius: "9999px",
+    backgroundColor: "#CBD5E1",
+  },
+  sheetBody: {
+    padding: "10px 24px 20px 24px",
+    overflowY: "auto",
+    overscrollBehavior: "contain",
+    overscrollBehaviorY: "contain",
+    WebkitOverflowScrolling: "touch",
+    flex: 1,
+  },
+  sheetStickyBottom: {
+    padding: "16px 24px",
+    borderTop: "1px solid #F1F5F9",
+    backgroundColor: "#FFFFFF",
+    display: "flex",
+    gap: "12px",
+    alignItems: "center",
+    flexShrink: 0,
   },
   modal: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--card-bg, #FFFFFF)",
+    backdropFilter: "var(--card-blur, blur(24px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(24px))",
     borderRadius: "24px",
     padding: "24px",
     width: "100%",
     maxWidth: "420px",
-    boxShadow: "0 25px 50px rgba(15, 23, 42, 0.15)",
+    boxShadow: "var(--card-shadow, 0 25px 50px rgba(15, 23, 42, 0.15))",
+    border: "var(--card-border, 1px solid rgba(226, 232, 240, 0.9))",
   },
   modalTitle: {
     fontSize: "17px",
@@ -620,10 +920,11 @@ const styles = {
     width: "100%",
     padding: "10px 14px",
     borderRadius: "12px",
-    border: "1px solid #CBD5E1",
+    border: "var(--card-border, 1px solid #CBD5E1)",
     fontSize: "13px",
     outline: "none",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "var(--input-bg, #F8FAFC)",
+    color: "var(--text-primary, #0F172A)",
   },
   modalBtns: {
     display: "flex",
@@ -634,9 +935,9 @@ const styles = {
     flex: 1,
     padding: "11px",
     borderRadius: "9999px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--input-bg, #FFFFFF)",
     color: "#64748B",
-    border: "1px solid #CBD5E1",
+    border: "var(--card-border, 1px solid #CBD5E1)",
     fontSize: "13px",
     fontWeight: "600",
     cursor: "pointer",
@@ -681,8 +982,10 @@ const styles = {
   slotNormal: {
     padding: "9px 6px",
     borderRadius: "9999px",
-    backgroundColor: "#F8FAFC",
-    border: "1px solid #E2E8F0",
+    backgroundColor: "var(--input-bg, #F8FAFC)",
+    border: "var(--card-border, 1px solid #E2E8F0)",
+    backdropFilter: "var(--card-blur, blur(8px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(8px))",
     color: "#334155",
     fontSize: "12px",
     fontWeight: "600",
@@ -700,8 +1003,12 @@ const styles = {
     textAlign: "center",
   },
   rxContainer: {
-    backgroundColor: "#FFFFFF",
-    padding: "10px",
+    backgroundColor: "var(--card-bg, #FFFFFF)",
+    backdropFilter: "var(--card-blur, blur(16px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(16px))",
+    borderRadius: "16px",
+    border: "var(--card-border, 1px solid #E2E8F0)",
+    padding: "16px",
   },
   rxHeader: {
     display: "flex",

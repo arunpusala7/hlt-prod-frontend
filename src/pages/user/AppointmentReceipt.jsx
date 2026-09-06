@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { formatDoctorName } from "../../utils/formatDoctorName";
 import { getDoctorPortrait } from "../../utils/doctorAvatars";
+import api from "../../api/api";
 
 const AppointmentReceipt = ({ appointment, onClose }) => {
   const receiptRef = useRef();
@@ -19,6 +20,21 @@ const AppointmentReceipt = ({ appointment, onClose }) => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+
+  // Lock body scroll and prevent background chaining when receipt sheet is open
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    const originalOverscroll = document.body.style.overscrollBehavior;
+    const originalTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.overscrollBehavior = originalOverscroll;
+      document.body.style.touchAction = originalTouchAction;
+    };
+  }, []);
 
   if (!appointment) return null;
 
@@ -80,14 +96,51 @@ const AppointmentReceipt = ({ appointment, onClose }) => {
       (appointment.startTime ? appointment.startTime.replace(/:\d\d$/, ":30") : null)
   );
 
-  // High-Resolution PDF Download
+  // High-Resolution PDF Download — tries server-side first, falls back to client-side
   const downloadPDF = async (e) => {
     e.stopPropagation();
-    const element = receiptRef.current;
-    if (!element) return;
-
     setIsDownloading(true);
     toast("Saving pass...", { icon: "📥" });
+
+    // Attempt 1: Server-generated OpenPDF with QR code
+    const ticketIdForPdf = appointment.ticketId || rawTicket;
+    const appointmentIdForPdf = appointment.appointmentId || appointment.id;
+    try {
+      let pdfUrl = null;
+      if (ticketIdForPdf && !ticketIdForPdf.startsWith("HC-")) {
+        pdfUrl = `/api/appointments/ticket/${ticketIdForPdf}/pdf`;
+      } else if (appointmentIdForPdf && typeof appointmentIdForPdf === "number") {
+        pdfUrl = `/api/appointments/${appointmentIdForPdf}/pdf`;
+      }
+
+      if (pdfUrl) {
+        const res = await api.get(pdfUrl, { responseType: "blob" });
+        if (res.data && res.data.size > 100) {
+          const blob = new Blob([res.data], { type: "application/pdf" });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `HealthConnect-Pass-${displayTicketId}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          toast.success("Official pass downloaded!");
+          setIsDownloading(false);
+          return;
+        }
+      }
+    } catch (serverErr) {
+      // Server PDF unavailable, fall through to client-side generation
+      console.log("Server PDF unavailable, using client-side generation");
+    }
+
+    // Attempt 2: Client-side html2canvas generation
+    const element = receiptRef.current;
+    if (!element) {
+      setIsDownloading(false);
+      return;
+    }
 
     try {
       const canvas = await html2canvas(element, {
@@ -115,7 +168,11 @@ const AppointmentReceipt = ({ appointment, onClose }) => {
   };
 
   return (
-    <div style={styles.sheetOverlay} onClick={onClose}>
+    <div 
+      style={styles.sheetOverlay} 
+      onClick={onClose}
+      onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
+    >
       <motion.div
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
@@ -229,6 +286,7 @@ const styles = {
     justifyContent: "flex-end",
     alignItems: "center",
     zIndex: 100000,
+    touchAction: "none",
   },
   bottomSheet: {
     width: "100%",
@@ -241,8 +299,8 @@ const styles = {
     borderBottomRightRadius: 0,
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 -10px 40px rgba(15, 23, 42, 0.25)",
-    border: "1px solid #E2E8F0",
+    boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.18)",
+    border: "1px solid rgba(226, 232, 240, 0.95)",
     borderBottom: "none",
     overflow: "hidden",
   },
@@ -264,12 +322,15 @@ const styles = {
     padding: "10px 20px 16px 20px",
     overflowY: "auto",
     flex: 1,
+    overscrollBehavior: "contain",
+    overscrollBehaviorY: "contain",
+    WebkitOverflowScrolling: "touch",
   },
   cleanPassCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
     borderRadius: "20px",
     padding: "16px 18px",
-    border: "1px solid #F1F5F9",
+    border: "1px solid #E2E8F0",
   },
   topRow: {
     display: "flex",
@@ -414,10 +475,10 @@ const styles = {
   },
   btnClose: {
     padding: "12px 24px",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "var(--input-bg, #F8FAFC)",
     color: "#64748B",
     borderRadius: "9999px",
-    border: "1px solid #E2E8F0",
+    border: "var(--card-border, 1px solid #E2E8F0)",
     fontWeight: "600",
     fontSize: "13px",
     cursor: "pointer",

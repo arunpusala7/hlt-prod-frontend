@@ -340,7 +340,7 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
                 <motion.div
                   key={doc.id}
                   whileHover={{ y: -3 }}
-                  className="glass-card"
+                  className="doc-card tactile-card"
                   style={styles.docCard}
                 >
                   <div style={styles.docAvatarBox}>

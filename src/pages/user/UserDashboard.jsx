@@ -110,6 +110,7 @@ function UserDashboard() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
+                  className="tactile-card"
                   style={isActive ? styles.navPillActive : styles.navPillInactive}
                 >
                   {item.icon}
@@ -122,6 +123,7 @@ function UserDashboard() {
           {/* Right Action Icons: Notification Bell & Profile Avatar */}
           <div style={styles.headerRight}>
             <button 
+              className="tactile-card"
               style={styles.bellBtn} 
               onClick={() => setActiveTab("my-appointments")} 
               title="Notifications"
@@ -136,6 +138,7 @@ function UserDashboard() {
             {/* Profile Dropdown */}
             <div style={styles.profileSection} ref={profileMenuRef}>
               <div 
+                className="tactile-card"
                 style={styles.avatarCircle} 
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
               >
@@ -181,15 +184,16 @@ function UserDashboard() {
       </header>
 
       {/* Main Content Layout Container */}
-      <main style={styles.mainContainer}>
+      <main className="user-main-container" style={styles.mainContainer}>
         <AnimatePresence mode="wait">
           {(activeTab === "overview" || activeTab === "book") && (
             <motion.div 
               key="overview"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              style={{ width: "100%" }}
             >
               <UserOverview 
                 setActiveTab={setActiveTab} 
@@ -203,10 +207,11 @@ function UserDashboard() {
           {activeTab === "my-appointments" && (
             <motion.div 
               key="appointments"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              style={{ width: "100%" }}
             >
               <MyAppointments />
             </motion.div>
@@ -215,10 +220,11 @@ function UserDashboard() {
           {activeTab === "profile" && (
             <motion.div 
               key="profile"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              style={{ width: "100%" }}
             >
               <UserProfile />
             </motion.div>
@@ -253,12 +259,14 @@ const styles = {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "transparent",
   },
   navbar: {
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    backdropFilter: "blur(20px)",
-    borderBottom: "1px solid rgba(226, 232, 240, 0.8)",
+    backgroundColor: "var(--header-bg, rgba(255, 255, 255, 0.82))",
+    backdropFilter: "var(--card-blur, blur(20px) saturate(180%))",
+    WebkitBackdropFilter: "var(--card-blur, blur(20px) saturate(180%))",
+    borderBottom: "var(--card-border, 1px solid rgba(226, 232, 240, 0.7))",
+    boxShadow: "var(--card-shadow, 0 4px 20px -2px rgba(15, 23, 42, 0.04))",
     position: "sticky",
     top: 0,
     zIndex: 100,
@@ -305,13 +313,14 @@ const styles = {
     display: "inline-flex",
     alignItems: "center",
     gap: "8px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--card-bg, #FFFFFF)",
     color: "#3B82F6",
     padding: "8px 18px",
     borderRadius: "9999px",
     fontSize: "13px",
     fontWeight: "700",
-    boxShadow: "0 2px 8px rgba(15, 23, 42, 0.06)",
+    border: "var(--card-border, 1px solid rgba(255, 255, 255, 0.9))",
+    boxShadow: "var(--card-shadow, 0 2px 8px rgba(15, 23, 42, 0.06))",
     cursor: "pointer",
     transition: "all 0.15s ease",
   },
@@ -325,6 +334,8 @@ const styles = {
     borderRadius: "9999px",
     fontSize: "13px",
     fontWeight: "600",
+    border: "none",
+    boxShadow: "none",
     cursor: "pointer",
     transition: "all 0.15s ease",
   },
@@ -377,10 +388,12 @@ const styles = {
     position: "absolute",
     top: "48px",
     right: 0,
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #E2E8F0",
+    backgroundColor: "var(--card-bg, rgba(255, 255, 255, 0.88))",
+    backdropFilter: "var(--card-blur, blur(24px) saturate(180%))",
+    WebkitBackdropFilter: "var(--card-blur, blur(24px) saturate(180%))",
+    border: "var(--card-border, 1px solid rgba(255, 255, 255, 0.9))",
     borderRadius: "20px",
-    boxShadow: "0 16px 36px rgba(15, 23, 42, 0.12)",
+    boxShadow: "var(--card-shadow, 0 20px 40px rgba(15, 23, 42, 0.12))",
     width: "220px",
     overflow: "hidden",
     zIndex: 200,

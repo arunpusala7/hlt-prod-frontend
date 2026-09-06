@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { getDoctorPortrait, getSpecialtyIcon } from "../../utils/doctorAvatars";
 import { formatDoctorName } from "../../utils/formatDoctorName";
 import AppointmentReceipt from "./AppointmentReceipt";
+import CancelReasonDropdown from "../../components/CancelReasonDropdown";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -286,17 +287,13 @@ function UserOverview({
   const [cancelReason, setCancelReason] = useState("Busy on that date");
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // Sticky Controls Scroll Detection
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  // In-Page Reschedule Bottom Sheet State (75% height)
+  const [reschedulingAppt, setReschedulingAppt] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleSlots, setRescheduleSlots] = useState([]);
+  const [selectedRescheduleSlot, setSelectedRescheduleSlot] = useState(null);
+  const [loadingRescheduleSlots, setLoadingRescheduleSlots] = useState(false);
+  const [isConfirmingReschedule, setIsConfirmingReschedule] = useState(false);
 
   // Specialties without "All" button
   const specialties = [
@@ -352,6 +349,27 @@ function UserOverview({
     fetchUpcomingAppointment();
     fetchDoctorsList();
   }, []);
+
+  // Lock background page scroll whenever any 75% bottom sheet or modal is open
+  const isAnySheetOpen = Boolean(
+    bookingDoctor || showCustomCalendar || viewingReceipt || cancellingAppt || reschedulingAppt
+  );
+
+  useEffect(() => {
+    if (isAnySheetOpen) {
+      const originalOverflow = document.body.style.overflow;
+      const originalOverscroll = document.body.style.overscrollBehavior;
+      const originalTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = "hidden";
+      document.body.style.overscrollBehavior = "none";
+      document.body.style.touchAction = "none";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.overscrollBehavior = originalOverscroll;
+        document.body.style.touchAction = originalTouchAction;
+      };
+    }
+  }, [isAnySheetOpen]);
 
   const fetchSlotsForDoctor = async (docId, dateStr) => {
     setLoadingBookingSlots(true);
@@ -631,6 +649,75 @@ function UserOverview({
     }
   };
 
+  // In-Page Reschedule Consultation
+  const handleOpenReschedule = (appt) => {
+    if (!appt) return;
+    setReschedulingAppt(appt);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const defaultDateStr = tomorrow.toISOString().split("T")[0];
+    setRescheduleDate(defaultDateStr);
+    setSelectedRescheduleSlot(null);
+    fetchRescheduleSlots(appt, defaultDateStr);
+  };
+
+  const handleRescheduleDateChange = (dateStr) => {
+    setRescheduleDate(dateStr);
+    setSelectedRescheduleSlot(null);
+    if (reschedulingAppt) {
+      fetchRescheduleSlots(reschedulingAppt, dateStr);
+    }
+  };
+
+  const fetchRescheduleSlots = async (appt, dateStr) => {
+    setLoadingRescheduleSlots(true);
+    try {
+      const apptId = appt.appointmentId || appt.id;
+      const docId = appt.doctorId || (appt.doctor && appt.doctor.id);
+      if (!docId) {
+        setRescheduleSlots([]);
+        return;
+      }
+      const res = await api.get(`/api/reschedule/slots?appointmentId=${apptId}&doctorId=${docId}&date=${dateStr}`);
+      setRescheduleSlots(res.data?.slots || []);
+    } catch (err) {
+      console.error("Failed to load reschedule slots", err);
+      try {
+        const docId = appt.doctorId || (appt.doctor && appt.doctor.id);
+        const res2 = await api.get(`/api/availability/doctor/${docId}?date=${dateStr}`);
+        const slotsArray = res2.data?.availableSlots || res2.data?.slots || (Array.isArray(res2.data) ? res2.data : []);
+        setRescheduleSlots(slotsArray);
+      } catch {
+        setRescheduleSlots([]);
+      }
+    } finally {
+      setLoadingRescheduleSlots(false);
+    }
+  };
+
+  const handleConfirmRescheduleSubmit = async () => {
+    if (!reschedulingAppt || !rescheduleDate || !selectedRescheduleSlot) return;
+    setIsConfirmingReschedule(true);
+    const toastId = toast.loading("Rescheduling consultation & issuing new pass...");
+    try {
+      const apptId = reschedulingAppt.appointmentId || reschedulingAppt.id;
+      const res = await api.put(`/api/reschedule/${apptId}`, {
+        newDate: rescheduleDate,
+        startTime: (selectedRescheduleSlot.startTime || "").substring(0, 5),
+        endTime: (selectedRescheduleSlot.endTime || "").substring(0, 5)
+      });
+      const newTicketId = res.data?.ticketId;
+      const shortId = newTicketId && newTicketId.length >= 8 ? newTicketId.substring(0, 8) : (newTicketId || "");
+      toast.success(shortId ? `Rescheduled! New Ticket #${shortId} & QR sent to email 📧` : "Appointment successfully rescheduled!", { id: toastId });
+      setReschedulingAppt(null);
+      fetchUpcomingAppointment();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Reschedule failed", { id: toastId });
+    } finally {
+      setIsConfirmingReschedule(false);
+    }
+  };
+
   // Filter doctors
   const filteredDoctors = doctors.filter((doc) => {
     const sTerm = searchTerm.trim().toLowerCase();
@@ -659,8 +746,8 @@ function UserOverview({
 
   return (
     <div style={isPhoneMode ? styles.phoneContainer : styles.fluidContainer}>
-      {/* Top Header Row */}
-      <div style={styles.greetingRow}>
+      {/* Top Header Row - Fixed Greeting & Notification Header */}
+      <div className="fixed-greeting-header" style={styles.greetingRow}>
         <div style={styles.userBio}>
           <div>
             <span style={styles.greetingSub}>{getGreeting()}</span>
@@ -697,6 +784,7 @@ function UserOverview({
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
+              whileTap={{ scale: 0.985 }}
               style={styles.featuredCard}
             >
               {/* Overlapping Transparent Doctor Cutout Portrait */}
@@ -732,19 +820,32 @@ function UserOverview({
 
                 {/* Action Buttons Row */}
                 <div style={styles.featuredActionsRow}>
-                  <button 
+                  <motion.button 
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
                     style={styles.cardCancelBtn} 
-                    onClick={() => setCancellingAppt(nextAppointment)}
+                    onClick={(e) => { e.stopPropagation(); setCancellingAppt(nextAppointment); }}
                   >
                     Cancel
-                  </button>
-                  <button 
+                  </motion.button>
+                  <motion.button 
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.28)" }}
+                    style={styles.cardRescheduleBtn} 
+                    onClick={(e) => { e.stopPropagation(); handleOpenReschedule(nextAppointment); }}
+                    title="Reschedule this consultation"
+                  >
+                    Reschedule ↻
+                  </motion.button>
+                  <motion.button 
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
                     style={styles.cardDetailsBtn} 
-                    onClick={() => setViewingReceipt(nextAppointment)}
+                    onClick={(e) => { e.stopPropagation(); setViewingReceipt(nextAppointment); }}
                     title="View Consultation Pass & QR Voucher"
                   >
                     View Pass 🎟️
-                  </button>
+                  </motion.button>
                 </div>
               </div>
 
@@ -763,11 +864,11 @@ function UserOverview({
 
       {/* =====================================================================
           STICKY CONTROLS HEADER (SEARCH BAR + DOCTOR SPECIALITIES)
-          Fixed at top when scrolled, only doctors list scrolls below
+          Pauses at top: 48px once reached top, mixing seamlessly with header UI
           ===================================================================== */}
       <div className="sticky-controls-header">
-        {/* 2. SEARCH BAR PILL WITH FILTER ICON */}
-        <div style={{ ...styles.searchRow, marginBottom: "12px" }}>
+        {/* Search Bar Pill */}
+        <div style={{ ...styles.searchRow, marginBottom: "8px" }}>
           <div style={styles.searchPill}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.2">
               <circle cx="11" cy="11" r="8"></circle>
@@ -798,17 +899,23 @@ function UserOverview({
           </div>
         </div>
 
-        {/* 3. DOCTOR SPECIALIZATION CATEGORIES (CLEAN STANDARD CHIPS - NO EMOJI) */}
-        <div style={{ ...styles.sectionTitleRow, marginTop: "4px", marginBottom: "8px" }}>
-          <h3 style={styles.sectionHeading}>Doctor Specialities</h3>
-          {selectedSpecialty && (
-            <span style={styles.clearFilterLink} onClick={() => setSelectedSpecialty(null)}>
-              Clear filter ✕
+        {/* Doctor Specialization Filter Chips Strip */}
+        <div style={{ ...styles.specialtiesCardsStrip, marginBottom: "0px", paddingBottom: "2px" }}>
+          {/* 'All' chip */}
+          <motion.button
+            whileTap={{ scale: 0.94 }}
+            whileHover={{ y: -1 }}
+            onClick={() => setSelectedSpecialty(null)}
+            style={!selectedSpecialty ? styles.specChipActive : styles.specChipInactive}
+          >
+            <span style={!selectedSpecialty ? styles.specChipLabelActive : styles.specChipLabel}>
+              All
             </span>
-          )}
-        </div>
+            <span style={!selectedSpecialty ? styles.specChipCountActive : styles.specChipCount}>
+              {doctors.length}
+            </span>
+          </motion.button>
 
-        <div style={{ ...styles.specialtiesCardsStrip, paddingBottom: "6px", marginBottom: "2px" }}>
           {ALL_SPECIALTIES.map((spec) => {
             const isActive = selectedSpecialty === spec.id;
             const count = doctors.filter(d => {
@@ -817,8 +924,10 @@ function UserOverview({
             }).length;
 
             return (
-              <button
+              <motion.button
                 key={spec.id}
+                whileTap={{ scale: 0.94 }}
+                whileHover={{ y: -1 }}
                 onClick={() => setSelectedSpecialty(isActive ? null : spec.id)}
                 style={isActive ? styles.specChipActive : styles.specChipInactive}
               >
@@ -828,66 +937,83 @@ function UserOverview({
                 <span style={isActive ? styles.specChipCountActive : styles.specChipCount}>
                   {count}
                 </span>
-              </button>
+              </motion.button>
             );
           })}
         </div>
       </div>
 
-      {/* Top Specialists Section Header directly above Doctor Cards */}
-      <div style={{ ...styles.sectionTitleRow, marginTop: "18px", marginBottom: "12px" }}>
-        <h3 style={styles.sectionHeading}>
-          {selectedSpecialty ? `${ALL_SPECIALTIES.find(s => s.id === selectedSpecialty)?.label || selectedSpecialty} Specialists` : "Top Specialists"}
-        </h3>
-        <span style={{ fontSize: "12px", color: "#64748B", fontWeight: "600" }}>
-          {filteredDoctors.length} available
-        </span>
-      </div>
+      {/* Doctor Cards Section with Section Title */}
+      <div className="merged-doctor-section" style={styles.mergedDoctorSection}>
+        {/* Unified Section Header */}
+        <div style={{ ...styles.sectionTitleRow, marginTop: "14px", marginBottom: "12px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+            <h3 style={styles.sectionHeading}>
+              {selectedSpecialty 
+                ? `${ALL_SPECIALTIES.find(s => s.id === selectedSpecialty)?.label || selectedSpecialty} Specialists` 
+                : "Top Specialists"}
+            </h3>
+            <span style={styles.specCountBadge}>
+              {filteredDoctors.length} available
+            </span>
+          </div>
+          {selectedSpecialty && (
+            <span 
+              style={styles.clearFilterLink} 
+              onClick={() => setSelectedSpecialty(null)}
+              title="Show all specialties"
+            >
+              Show All ✕
+            </span>
+          )}
+        </div>
 
-      {/* Doctor Cards 2-Column Grid (Two Cards Horizontally Side by Side) */}
-      <div ref={doctorListRef} className="doctor-cards-grid" style={styles.doctorGrid}>
-        {filteredDoctors.map((doc) => (
-          <motion.div
-            key={doc.id}
-            whileHover={{ y: -3 }}
-            className="glass-card"
-            style={styles.docCard}
-            onClick={() => handleOpenBookingModal(doc)}
-          >
-            <div style={styles.docCardAvatar}>
-              <img 
-                src={getDoctorPortrait(doc.id, doc.name)} 
-                alt={doc.name} 
-                style={styles.docCardImg} 
-              />
-            </div>
-            <div style={styles.docCardBody}>
-              <h4 style={styles.docCardName}>{formatDoctorName(doc.name)}</h4>
-              <span style={styles.docCardSpec}>{doc.specialization || "Specialist"}</span>
-              {doc.experienceYears && (
-                <span style={styles.docCardExp}>{doc.experienceYears}</span>
-              )}
-              
-              <div style={styles.docCardBottomRow}>
-                <span style={styles.docCardFee}>
-                  ₹{doc.consultationFee !== undefined ? doc.consultationFee : 500} 
-                  <span style={{ fontSize: "10px", color: "#94A3B8", fontWeight: "normal" }}> / visit</span>
-                </span>
-                <span style={styles.docRating}>⭐ 4.9</span>
+        {/* Doctor Cards 2-Column Grid (Two Cards Horizontally Side by Side) */}
+        <div ref={doctorListRef} className="doctor-cards-grid" style={styles.doctorGrid}>
+          {filteredDoctors.map((doc) => (
+            <motion.div
+              key={doc.id}
+              whileHover={{ y: -3 }}
+              whileTap={{ scale: 0.968 }}
+              className="doc-card tactile-card"
+              style={styles.docCard}
+              onClick={() => handleOpenBookingModal(doc)}
+            >
+              <div style={styles.docCardAvatar}>
+                <img 
+                  src={getDoctorPortrait(doc.id, doc.name)} 
+                  alt={doc.name} 
+                  style={styles.docCardImg} 
+                />
               </div>
+              <div style={styles.docCardBody}>
+                <h4 style={styles.docCardName}>{formatDoctorName(doc.name)}</h4>
+                <span style={styles.docCardSpec}>{doc.specialization || "Specialist"}</span>
+                {doc.experienceYears && (
+                  <span style={styles.docCardExp}>{doc.experienceYears}</span>
+                )}
+                
+                <div style={styles.docCardBottomRow}>
+                  <span style={styles.docCardFee}>
+                    ₹{doc.consultationFee !== undefined ? doc.consultationFee : 500} 
+                    <span style={{ fontSize: "10px", color: "#94A3B8", fontWeight: "normal" }}> / visit</span>
+                  </span>
+                  <span style={styles.docRating}>⭐ 4.9</span>
+                </div>
 
-              <button
-                style={styles.docCardBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpenBookingModal(doc);
-                }}
-              >
-                Book Appointment
-              </button>
-            </div>
-          </motion.div>
-        ))}
+                <button
+                  style={styles.docCardBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenBookingModal(doc);
+                  }}
+                >
+                  Book Appointment
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </div>
 
       {/* =====================================================================
@@ -903,6 +1029,7 @@ function UserOverview({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
             onClick={() => setBookingDoctor(null)}
+            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
           >
             <motion.div 
               className="swiggy-bottom-sheet"
@@ -965,8 +1092,8 @@ function UserOverview({
                   </div>
                 </div>
 
-                {/* 4-Stat Frosted Glass Card */}
-                <div className="frosted-glass" style={styles.sheetStatsCard}>
+                {/* 4-Stat Minimal Morphism Box */}
+                <div style={styles.sheetStatsCard}>
                   <div style={styles.sheetStatCol}>
                     <h4 style={styles.sheetStatVal}>{bookingDoctor.experienceYears || "10+ Years"}</h4>
                     <span style={styles.sheetStatLabel}>Experience</span>
@@ -1146,6 +1273,7 @@ function UserOverview({
           <div 
             style={styles.calendarModalOverlay} 
             onClick={() => setShowCustomCalendar(false)}
+            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
           >
             <motion.div
               initial={{ y: "100%" }}
@@ -1294,41 +1422,67 @@ function UserOverview({
       </AnimatePresence>
 
       {/* =====================================================================
-          IN-PAGE MODAL 3: IN-CONTEXT CANCELLATION CONFIRMATION
+          IN-PAGE MODAL 3: IN-CONTEXT CANCELLATION CONFIRMATION (75% BOTTOM SHEET)
           ===================================================================== */}
       <AnimatePresence>
         {cancellingAppt && (
-          <div style={styles.modalBackdrop}>
+          <div 
+            style={styles.sheetOverlay} 
+            onClick={() => setCancellingAppt(null)}
+            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
+          >
             <motion.div
-              initial={{ opacity: 0, scale: 0.94 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.94 }}
-              style={styles.cancelModalCard}
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              style={styles.cancelBottomSheet}
+              onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ textAlign: "center", marginBottom: "16px" }}>
-                <div style={styles.cancelWarningIcon}>⚠️</div>
-                <h3 style={{ margin: "8px 0 4px 0", fontSize: "17px", fontWeight: "800", color: "#0F172A" }}>
-                  Cancel Consultation?
-                </h3>
-                <p style={{ margin: 0, fontSize: "12px", color: "#64748B" }}>
-                  With {formatDoctorName(cancellingAppt.doctorName)} on {cancellingAppt.date}
-                </p>
+              {/* Drag Handle */}
+              <div style={styles.sheetHandleRow} onClick={() => setCancellingAppt(null)}>
+                <div style={styles.sheetDragPill}></div>
               </div>
 
-              <div style={{ marginBottom: "16px" }}>
-                <label style={styles.cancelFieldLabel}>Select reason:</label>
-                <select 
-                  value={cancelReason} 
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  style={styles.cancelSelect}
-                >
-                  {cancellationReasons.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
+              <div style={styles.sheetBody}>
+                <div style={{ textAlign: "center", margin: "4px 0 16px 0" }}>
+                  <div style={{ fontSize: "36px", marginBottom: "6px" }}>⚠️</div>
+                  <h3 style={{ margin: "4px 0 4px 0", fontSize: "18px", fontWeight: "800", color: "#0F172A" }}>
+                    Cancel Consultation?
+                  </h3>
+                  <p style={{ margin: 0, fontSize: "13px", color: "#64748B" }}>
+                    With {formatDoctorName(cancellingAppt.doctorName)} on {cancellingAppt.date || cancellingAppt.appointmentDate}
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: "18px" }}>
+                  <label style={styles.cancelFieldLabel}>Select reason:</label>
+                  <CancelReasonDropdown 
+                    value={cancelReason} 
+                    onChange={(val) => setCancelReason(val)}
+                  />
+                </div>
+
+                {/* Consultation Details Card */}
+                <div style={{ backgroundColor: "#F8FAFC", borderRadius: "14px", padding: "14px", border: "1px solid #E2E8F0", fontSize: "13px", color: "#475569", marginBottom: "8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                    <span>Specialist:</span>
+                    <strong style={{ color: "#0F172A" }}>{formatDoctorName(cancellingAppt.doctorName)}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                    <span>Scheduled Slot:</span>
+                    <strong style={{ color: "#0F172A" }}>{cancellingAppt.date || cancellingAppt.appointmentDate} &bull; {(cancellingAppt.startTime || "10:00").substring(0, 5)}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>Pass Ticket:</span>
+                    <span style={{ fontFamily: "monospace", color: "#2563EB", fontWeight: "700" }}>
+                      #{cancellingAppt.ticketId ? cancellingAppt.ticketId.substring(0, 8) : `HC-${cancellingAppt.appointmentId || cancellingAppt.id}`}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div style={styles.cancelActionsRow}>
+              <div style={styles.sheetStickyBottom}>
                 <button 
                   style={styles.cancelDismissBtn}
                   onClick={() => setCancellingAppt(null)}
@@ -1341,6 +1495,127 @@ function UserOverview({
                   onClick={handleConfirmCancel}
                 >
                   {isCancelling ? "Cancelling..." : "Confirm Cancel"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =====================================================================
+          IN-PAGE MODAL 4: IN-CONTEXT RESCHEDULE (75% BOTTOM SHEET)
+          ===================================================================== */}
+      <AnimatePresence>
+        {reschedulingAppt && (
+          <div 
+            style={styles.sheetOverlay} 
+            onClick={() => setReschedulingAppt(null)}
+            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              style={styles.rescheduleBottomSheet75}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drag Handle */}
+              <div style={styles.sheetHandleRow} onClick={() => setReschedulingAppt(null)}>
+                <div style={styles.sheetDragPill}></div>
+              </div>
+
+              <div style={styles.sheetBody}>
+                {/* Header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
+                  <div>
+                    <h3 style={{ margin: "0 0 4px 0", fontSize: "18px", fontWeight: "800", color: "#0F172A" }}>
+                      Reschedule Consultation ↻
+                    </h3>
+                    <p style={{ margin: 0, fontSize: "12px", color: "#64748B" }}>
+                      With {formatDoctorName(reschedulingAppt.doctorName)}. A new QR pass will be issued.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setReschedulingAppt(null)}
+                    style={{ background: "none", border: "none", fontSize: "18px", color: "#94A3B8", cursor: "pointer", padding: "4px" }}
+                    title="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Date Strip Title */}
+                <div style={{ margin: "14px 0 10px 0" }}>
+                  <h4 style={styles.sheetSectionTitle}>Choose a new date</h4>
+                </div>
+
+                {/* Horizontal Date Strip for Reschedule */}
+                <div style={styles.sheetDateStrip}>
+                  {dateStrip.map((item) => {
+                    const isSelected = rescheduleDate === item.isoDate;
+                    return (
+                      <div
+                        key={item.isoDate}
+                        onClick={() => handleRescheduleDateChange(item.isoDate)}
+                        style={isSelected ? styles.datePillActive : styles.datePillInactive}
+                      >
+                        <span style={isSelected ? styles.dayNameActive : styles.dayName}>{item.dayName}</span>
+                        <span style={isSelected ? styles.dateNumActive : styles.dateNum}>{item.dateNum}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Time Slots Section */}
+                <div style={{ margin: "18px 0 10px 0" }}>
+                  <h4 style={styles.sheetSectionTitle}>Available Slots ({rescheduleDate})</h4>
+                </div>
+
+                {loadingRescheduleSlots ? (
+                  <p style={{ textAlign: "center", color: "#64748B", padding: "18px 0", fontSize: "13px" }}>
+                    Checking specialist available slots...
+                  </p>
+                ) : rescheduleSlots.length === 0 ? (
+                  <div style={styles.emptySlotsBox}>
+                    <p style={{ margin: "0 0 6px 0", fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>No Available Slots</p>
+                    <p style={{ margin: 0, fontSize: "12px", color: "#64748B" }}>
+                      Please select another date above to view available openings.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={styles.slotPillGrid}>
+                    {rescheduleSlots.map((slot, idx) => {
+                      const isSelected = selectedRescheduleSlot === slot;
+                      const startTimeStr = (slot.startTime || "").substring(0, 5);
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedRescheduleSlot(slot)}
+                          style={isSelected ? styles.slotPillActive : styles.slotPillInactive}
+                        >
+                          {startTimeStr}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Sticky Action Bottom Bar */}
+              <div style={styles.sheetStickyBottom}>
+                <button 
+                  onClick={() => setReschedulingAppt(null)} 
+                  style={styles.cancelDismissBtn}
+                >
+                  Dismiss
+                </button>
+                <button
+                  disabled={!selectedRescheduleSlot || isConfirmingReschedule}
+                  onClick={handleConfirmRescheduleSubmit}
+                  style={selectedRescheduleSlot ? styles.sheetBookBtnActive : styles.sheetBookBtnDisabled}
+                >
+                  {isConfirmingReschedule ? "Confirming Reschedule..." : "Confirm Reschedule ↻"}
                 </button>
               </div>
             </motion.div>
@@ -1399,21 +1674,23 @@ const styles = {
     border: "2px solid #FFFFFF",
   },
   greetingSub: {
-    fontSize: "12px",
+    fontSize: "11px",
     color: "#64748B",
     fontWeight: "600",
     display: "block",
+    lineHeight: "1.2",
   },
   greetingName: {
-    fontSize: "18px",
-    fontWeight: "800",
+    fontSize: "14px",
+    fontWeight: "700",
     color: "#0F172A",
     margin: 0,
-    letterSpacing: "-0.02em",
+    letterSpacing: "-0.01em",
+    lineHeight: "1.2",
   },
   bellBtn: {
-    width: "40px",
-    height: "40px",
+    width: "36px",
+    height: "36px",
     borderRadius: "50%",
     backgroundColor: "#FFFFFF",
     border: "1px solid #E2E8F0",
@@ -1422,7 +1699,7 @@ const styles = {
     justifyContent: "center",
     cursor: "pointer",
     position: "relative",
-    boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
+    boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)",
   },
   bellDot: {
     position: "absolute",
@@ -1443,11 +1720,13 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--card-bg, rgba(255, 255, 255, 0.82))",
+    backdropFilter: "var(--card-blur, blur(16px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(16px))",
     padding: "11px 18px",
     borderRadius: "9999px",
-    border: "1px solid #E2E8F0",
-    boxShadow: "0 4px 14px rgba(15, 23, 42, 0.03)",
+    border: "var(--card-border, 1px solid rgba(255, 255, 255, 0.95))",
+    boxShadow: "var(--card-shadow, 0 6px 20px rgba(15, 23, 42, 0.04))",
   },
   searchInput: {
     border: "none",
@@ -1504,17 +1783,31 @@ const styles = {
     borderRadius: "9999px",
     cursor: "pointer",
   },
+  specCountBadge: {
+    fontSize: "11.5px",
+    color: "#64748B",
+    fontWeight: "700",
+    backgroundColor: "rgba(148, 163, 184, 0.16)",
+    padding: "2px 8.5px",
+    borderRadius: "9999px",
+  },
+  mergedDoctorSection: {
+    width: "100%",
+    marginTop: "4px",
+    display: "flex",
+    flexDirection: "column",
+  },
 
   // Sticky Controls Header
   stickyControlsHeader: {
-    backgroundColor: "rgba(248, 250, 252, 0.98)",
-    backdropFilter: "blur(16px)",
-    WebkitBackdropFilter: "blur(16px)",
+    backgroundColor: "var(--sticky-bg, rgba(248, 250, 252, 0.98))",
+    backdropFilter: "var(--card-blur, blur(16px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(16px))",
     zIndex: 40,
   },
   stickyControlsHeaderScrolled: {
-    borderBottom: "1px solid rgba(226, 232, 240, 0.9)",
-    boxShadow: "0 10px 25px -10px rgba(15, 23, 42, 0.08)",
+    borderBottom: "var(--sticky-border, 1px solid rgba(255, 255, 255, 0.5))",
+    boxShadow: "var(--sticky-shadow, 0 8px 25px -8px rgba(15, 23, 42, 0.05))",
   },
 
   // Featured Blue Card
@@ -1523,12 +1816,15 @@ const styles = {
     marginBottom: "10px",
   },
   featuredCard: {
-    background: "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
+    background: "linear-gradient(135deg, rgba(59, 130, 246, 0.95) 0%, rgba(29, 78, 216, 0.95) 100%)",
     borderRadius: "26px",
     padding: "20px 22px",
     color: "#FFFFFF",
     position: "relative",
-    boxShadow: "0 14px 30px -6px rgba(59, 130, 246, 0.45)",
+    boxShadow: "0 14px 30px -6px rgba(59, 130, 246, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.35)",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
     overflow: "hidden",
     minHeight: "165px",
     transition: "all 0.25s ease",
@@ -1601,29 +1897,57 @@ const styles = {
   },
   featuredActionsRow: {
     display: "flex",
-    gap: "10px",
+    alignItems: "center",
+    gap: "6px",
+    flexWrap: "wrap",
+    marginTop: "2px",
   },
   cardCancelBtn: {
-    backgroundColor: "#FFFFFF",
-    color: "#0F172A",
-    fontSize: "12px",
-    fontWeight: "700",
-    padding: "8px 18px",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    color: "#FFFFFF",
+    fontSize: "11px",
+    fontWeight: "600",
+    padding: "5px 11px",
     borderRadius: "9999px",
     cursor: "pointer",
-    border: "none",
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+    border: "1px solid rgba(255, 255, 255, 0.22)",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+    transition: "all 0.18s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "3px",
+  },
+  cardRescheduleBtn: {
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    color: "#FFFFFF",
+    fontSize: "11px",
+    fontWeight: "600",
+    padding: "5px 11px",
+    borderRadius: "9999px",
+    cursor: "pointer",
+    border: "1px solid rgba(255, 255, 255, 0.3)",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+    transition: "all 0.18s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
   },
   cardDetailsBtn: {
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-    color: "#FFFFFF",
-    fontSize: "12px",
+    backgroundColor: "#FFFFFF",
+    color: "#1D4ED8",
+    fontSize: "11px",
     fontWeight: "700",
-    padding: "8px 18px",
+    padding: "5px 12px",
     borderRadius: "9999px",
     cursor: "pointer",
     border: "none",
-    backdropFilter: "blur(6px)",
+    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
+    transition: "all 0.18s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
   },
   cardArrowCircle: {
     position: "absolute",
@@ -1658,29 +1982,31 @@ const styles = {
     display: "inline-flex",
     alignItems: "center",
     gap: "6px",
-    backgroundColor: "#3B82F6",
+    background: "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
     color: "#FFFFFF",
-    padding: "7px 14px",
+    padding: "7px 15px",
     borderRadius: "9999px",
-    border: "none",
-    boxShadow: "0 3px 10px rgba(59, 130, 246, 0.3)",
+    border: "1px solid rgba(255, 255, 255, 0.4)",
+    boxShadow: "0 4px 14px rgba(59, 130, 246, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.3)",
     cursor: "pointer",
     flexShrink: 0,
-    transition: "all 0.15s ease",
+    transition: "all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)",
   },
   specChipInactive: {
     display: "inline-flex",
     alignItems: "center",
     gap: "6px",
-    backgroundColor: "#FFFFFF",
-    color: "#334155",
+    backgroundColor: "var(--card-bg, rgba(255, 255, 255, 0.75))",
+    backdropFilter: "var(--card-blur, blur(14px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(14px))",
+    color: "#1E293B",
     padding: "7px 14px",
     borderRadius: "9999px",
-    border: "1px solid #E2E8F0",
-    boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
+    border: "var(--card-border, 1px solid rgba(255, 255, 255, 0.9))",
+    boxShadow: "var(--card-shadow, 0 2px 8px rgba(15, 23, 42, 0.03))",
     cursor: "pointer",
     flexShrink: 0,
-    transition: "all 0.15s ease",
+    transition: "all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)",
   },
   specChipLabel: {
     fontSize: "12.5px",
@@ -1697,9 +2023,9 @@ const styles = {
   specChipCount: {
     fontSize: "10px",
     fontWeight: "700",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "rgba(148, 163, 184, 0.18)",
     color: "#64748B",
-    padding: "1px 6px",
+    padding: "1.5px 6.5px",
     borderRadius: "9999px",
     lineHeight: "1.2",
   },
@@ -1708,7 +2034,7 @@ const styles = {
     fontWeight: "700",
     backgroundColor: "rgba(255, 255, 255, 0.25)",
     color: "#FFFFFF",
-    padding: "1px 6px",
+    padding: "1.5px 6.5px",
     borderRadius: "9999px",
     lineHeight: "1.2",
   },
@@ -1770,15 +2096,18 @@ const styles = {
     textAlign: "center",
     cursor: "pointer",
     borderRadius: "20px",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid rgba(226, 232, 240, 0.9)",
+    boxShadow: "0 4px 16px -2px rgba(15, 23, 42, 0.05), 0 1px 3px 0 rgba(15, 23, 42, 0.03)",
   },
   docCardAvatar: {
-    width: "56px",
-    height: "56px",
+    width: "58px",
+    height: "58px",
     borderRadius: "50%",
     overflow: "hidden",
     backgroundColor: "#EFF6FF",
-    border: "2px solid #FFFFFF",
-    boxShadow: "0 3px 10px rgba(15, 23, 42, 0.08)",
+    border: "2.5px solid #FFFFFF",
+    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.09)",
     marginBottom: "8px",
   },
   docCardImg: {
@@ -1790,19 +2119,21 @@ const styles = {
     width: "100%",
   },
   docCardName: {
-    fontSize: "13px",
-    fontWeight: "700",
+    fontSize: "13.5px",
+    fontWeight: "800",
     color: "#0F172A",
     margin: "0 0 2px 0",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    letterSpacing: "-0.01em",
   },
   docCardSpec: {
     fontSize: "10.5px",
     color: "#64748B",
+    fontWeight: "600",
     display: "block",
-    marginBottom: "8px",
+    marginBottom: "6px",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -1815,9 +2146,9 @@ const styles = {
     marginBottom: "10px",
   },
   docCardFee: {
-    fontSize: "12px",
+    fontSize: "12.5px",
     fontWeight: "800",
-    color: "#3B82F6",
+    color: "#0F172A",
     margin: 0,
   },
   docRating: {
@@ -1827,14 +2158,14 @@ const styles = {
   },
   docCardBtn: {
     width: "100%",
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#2563EB",
     color: "#FFFFFF",
     fontSize: "11px",
     fontWeight: "700",
-    padding: "7px 10px",
+    padding: "7.5px 10px",
     borderRadius: "9999px",
     cursor: "pointer",
-    boxShadow: "0 3px 8px rgba(59, 130, 246, 0.28)",
+    boxShadow: "0 3px 10px rgba(37, 99, 235, 0.28)",
     border: "none",
     transition: "all 0.15s ease",
   },
@@ -1869,6 +2200,7 @@ const styles = {
     justifyContent: "flex-end",
     alignItems: "center",
     zIndex: 9999,
+    touchAction: "none",
   },
   swiggyBookingSheet: {
     backgroundColor: "#FFFFFF",
@@ -1882,9 +2214,9 @@ const styles = {
     maxHeight: "75vh",
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 -12px 40px rgba(15, 23, 42, 0.25)",
+    boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.18)",
     overflow: "hidden",
-    border: "1px solid rgba(226, 232, 240, 0.9)",
+    border: "1px solid rgba(226, 232, 240, 0.95)",
     borderBottom: "none",
   },
   sheetHandleRow: {
@@ -1897,8 +2229,8 @@ const styles = {
     cursor: "pointer",
   },
   sheetDragPill: {
-    width: "44px",
-    height: "5px",
+    width: "40px",
+    height: "4.5px",
     backgroundColor: "#CBD5E1",
     borderRadius: "9999px",
   },
@@ -1915,7 +2247,7 @@ const styles = {
     height: "32px",
     borderRadius: "50%",
     backgroundColor: "#F1F5F9",
-    border: "none",
+    border: "1px solid #E2E8F0",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1923,7 +2255,9 @@ const styles = {
     transition: "background-color 0.15s ease",
   },
   bookingSheet: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--card-bg, #FFFFFF)",
+    backdropFilter: "var(--card-blur, blur(24px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(24px))",
     borderRadius: "28px",
     width: "100%",
     maxWidth: "440px",
@@ -1932,7 +2266,7 @@ const styles = {
     flexDirection: "column",
     boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
     overflow: "hidden",
-    border: "1px solid #E2E8F0",
+    border: "var(--card-border, 1px solid #E2E8F0)",
   },
   sheetBackBtn: {
     width: "34px",
@@ -1955,6 +2289,9 @@ const styles = {
     padding: "16px 20px",
     overflowY: "auto",
     flex: 1,
+    overscrollBehavior: "contain",
+    overscrollBehaviorY: "contain",
+    WebkitOverflowScrolling: "touch",
   },
   docHeaderRow: {
     display: "flex",
@@ -2074,8 +2411,9 @@ const styles = {
     padding: "12px 14px",
     borderRadius: "18px",
     marginBottom: "14px",
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
-    border: "1px solid rgba(226, 232, 240, 0.8)",
+    backgroundColor: "#F8FAFC",
+    border: "1px solid #E2E8F0",
+    boxShadow: "0 1px 3px rgba(15, 23, 42, 0.03)",
   },
   sheetStatCol: {
     textAlign: "center",
@@ -2135,7 +2473,7 @@ const styles = {
     borderRadius: "18px",
     backgroundColor: "#F8FAFC",
     border: "1.5px dashed #93C5FD",
-    boxShadow: "0 2px 5px rgba(15, 23, 42, 0.04)",
+    boxShadow: "0 1px 3px rgba(15, 23, 42, 0.03)",
     cursor: "pointer",
     flexShrink: 0,
     transition: "all 0.15s ease",
@@ -2413,10 +2751,12 @@ const styles = {
     width: "46px",
     height: "64px",
     borderRadius: "9999px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
     border: "1px solid #E2E8F0",
+    boxShadow: "0 1px 3px rgba(15, 23, 42, 0.02)",
     cursor: "pointer",
     flexShrink: 0,
+    transition: "all 0.15s ease",
   },
   dayNameActive: {
     fontSize: "10px",
@@ -2459,30 +2799,32 @@ const styles = {
   slotPillActive: {
     padding: "8px 6px",
     borderRadius: "12px",
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#2563EB",
     color: "#FFFFFF",
     border: "none",
     fontSize: "12px",
     fontWeight: "700",
     cursor: "pointer",
     textAlign: "center",
-    boxShadow: "0 3px 8px rgba(59, 130, 246, 0.3)",
+    boxShadow: "0 3px 8px rgba(37, 99, 235, 0.3)",
   },
   slotPillInactive: {
     padding: "8px 6px",
     borderRadius: "12px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
     color: "#0F172A",
     border: "1px solid #E2E8F0",
     fontSize: "12px",
     fontWeight: "600",
     cursor: "pointer",
     textAlign: "center",
+    transition: "all 0.15s ease",
   },
   sheetBottomBar: {
     padding: "14px 20px",
     backgroundColor: "#FFFFFF",
     borderTop: "1px solid #F1F5F9",
+    boxShadow: "0 -4px 16px rgba(15, 23, 42, 0.04)",
   },
   sheetBookBtnActive: {
     width: "100%",
@@ -2509,11 +2851,13 @@ const styles = {
     cursor: "not-allowed",
   },
   emptySlotsBox: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--input-bg, #FFFFFF)",
+    backdropFilter: "var(--card-blur, blur(10px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(10px))",
     borderRadius: "16px",
     padding: "16px",
     textAlign: "center",
-    border: "1px solid #E2E8F0",
+    border: "var(--card-border, 1px solid #E2E8F0)",
   },
   waitlistBtn: {
     backgroundColor: "#3B82F6",
@@ -2526,12 +2870,15 @@ const styles = {
     cursor: "pointer",
   },
   cancelModalCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--card-bg, #FFFFFF)",
+    backdropFilter: "var(--card-blur, blur(24px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(24px))",
     borderRadius: "24px",
     padding: "24px",
     width: "100%",
     maxWidth: "380px",
-    boxShadow: "0 20px 40px rgba(15, 23, 42, 0.2)",
+    border: "var(--card-border, 1px solid rgba(226, 232, 240, 0.9))",
+    boxShadow: "var(--card-shadow, 0 20px 40px rgba(15, 23, 42, 0.2))",
   },
   cancelWarningIcon: {
     fontSize: "32px",
@@ -2581,6 +2928,50 @@ const styles = {
     fontWeight: "700",
     cursor: "pointer",
     boxShadow: "0 4px 12px rgba(239, 68, 68, 0.3)",
+  },
+  cancelBottomSheet: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "28px 28px 0 0",
+    width: "100%",
+    maxWidth: "500px",
+    maxHeight: "75vh",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.22)",
+    border: "1px solid rgba(226, 232, 240, 0.95)",
+    borderBottom: "none",
+    overflow: "hidden",
+  },
+  rescheduleBottomSheet75: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "28px 28px 0 0",
+    width: "100%",
+    maxWidth: "500px",
+    height: "75vh",
+    maxHeight: "75vh",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.22)",
+    border: "1px solid rgba(226, 232, 240, 0.95)",
+    borderBottom: "none",
+    overflow: "hidden",
+  },
+  sheetBody: {
+    padding: "10px 24px 20px 24px",
+    overflowY: "auto",
+    flex: 1,
+    overscrollBehavior: "contain",
+    overscrollBehaviorY: "contain",
+    WebkitOverflowScrolling: "touch",
+  },
+  sheetStickyBottom: {
+    padding: "16px 24px",
+    borderTop: "1px solid #F1F5F9",
+    backgroundColor: "#FFFFFF",
+    display: "flex",
+    gap: "12px",
+    alignItems: "center",
+    flexShrink: 0,
   },
 };
 

@@ -110,28 +110,48 @@ const TodayAppointments = ({ onViewHistory, isLoadingHistory }) => {
       {/* Header Bar */}
       <div style={styles.headerBar}>
         <div style={styles.headerTitleRow}>
-          <h2 style={styles.headerTitle}>Consultation Queue</h2>
-          <span style={styles.countBadge}>{filteredAppts.length} Patients</span>
-          <span style={styles.headerDot}>•</span>
-          <span style={styles.headerSubInline}>Manage consultations, prescriptions, and medical history.</span>
+          <div style={styles.titleGroup}>
+            <h2 style={styles.headerTitle}>Consultation Queue</h2>
+            <span style={styles.countBadge}>{filteredAppts.length} Patients</span>
+          </div>
+          <span style={styles.headerSubInline}>Manage today's consultations, digital prescriptions, and patient history.</span>
         </div>
 
-        {/* Minimal Modern Search Bar */}
+        {/* Minimal Modern Search Bar with SVG Icon */}
         <div style={styles.searchContainer}>
-          <input
-            type="text"
-            placeholder="Search patient name or Ticket ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.minimalSearchInput}
-          />
+          <div style={styles.searchWrapper}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.2" style={styles.searchIcon}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by patient name or Ticket ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.minimalSearchInput}
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm("")}
+                style={styles.clearSearchBtn}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Horizontal Date Strip with 1st Box = Custom Date Button */}
         <div style={styles.minimalDateStrip}>
           {/* Box 1: Custom Date Selector Button */}
           <div style={styles.customDateBox} onClick={openNativeDatePicker} title="Select Custom Date">
-            <span style={styles.customDateIcon}>📅</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.2" style={{ marginBottom: "2px" }}>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+            </svg>
             <span style={styles.customDateText}>Date</span>
             <input
               ref={dateInputRef}
@@ -162,20 +182,28 @@ const TodayAppointments = ({ onViewHistory, isLoadingHistory }) => {
 
       {/* Patient Queue Cards */}
       {loading ? (
-        <p style={{ textAlign: "center", color: "#64748b", padding: "40px 0", fontSize: "13px" }}>
-          Loading schedule...
-        </p>
+        <div style={{ textAlign: "center", padding: "40px 0" }}>
+          <p style={{ color: "#64748B", fontSize: "14px", fontWeight: "600" }}>Loading schedule...</p>
+        </div>
       ) : filteredAppts.length === 0 ? (
         <div style={styles.emptyCard}>
+          <div style={styles.emptyIconBox}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
           <h3 style={styles.emptyTitle}>No Appointments Scheduled</h3>
-          <p style={styles.emptySub}>No patient bookings found for {selectedDate}.</p>
+          <p style={styles.emptySub}>No patient bookings found for {selectedDate}. Choose another date above.</p>
         </div>
       ) : (
         <div style={styles.cardList}>
           {filteredAppts.map((appt) => (
-            <div key={appt.appointmentId} style={styles.apptCard}>
+            <div key={appt.appointmentId} className="doctor-appointment-card" style={styles.apptCard}>
               {/* Column 1: Time Pill */}
-              <div style={styles.timePill}>
+              <div className="appt-time-col" style={styles.timePill}>
                 <span style={styles.timeVal}>
                   {appt.startTime ? appt.startTime.substring(0, 5) : "--:--"}
                 </span>
@@ -185,26 +213,29 @@ const TodayAppointments = ({ onViewHistory, isLoadingHistory }) => {
               </div>
 
               {/* Column 2: Patient Info */}
-              <div style={styles.patientInfoCol}>
+              <div className="appt-info-col" style={styles.patientInfoCol}>
                 <div style={styles.patientNameRow}>
                   <h3 style={styles.patientName}>{appt.userName || "Patient"}</h3>
                   <span style={styles.ticketPill}>
-                    Ticket #{appt.ticketId ? appt.ticketId.substring(0, 8) : "N/A"}
+                    #{appt.ticketId ? appt.ticketId.substring(0, 8) : "N/A"}
                   </span>
                   <StatusBadge status={appt.status} />
                 </div>
 
                 {appt.prescription ? (
                   <p style={styles.prescriptionText}>
-                    <strong style={{ color: "#2563eb" }}>Prescription:</strong> {appt.prescription}
+                    <strong style={{ color: "#2563EB" }}>Prescription:</strong> {appt.prescription}
                   </p>
                 ) : (
-                  <p style={styles.waitingText}>● Waiting for consultation</p>
+                  <p style={styles.waitingText}>
+                    <span style={styles.waitingDot}></span>
+                    Waiting for consultation
+                  </p>
                 )}
               </div>
 
               {/* Column 3: Action Buttons */}
-              <div style={styles.actionGroup}>
+              <div className="appt-actions-col" style={styles.actionGroup}>
                 <button
                   onClick={() => {
                     if (appt.userId) {
@@ -326,70 +357,94 @@ const StatusBadge = ({ status }) => {
 
 const styles = {
   container: {
-    maxWidth: "1000px",
+    maxWidth: "1100px",
     margin: "0 auto",
   },
   headerBar: {
-    backgroundColor: "#ffffff",
-    borderRadius: "14px",
-    padding: "20px",
-    border: "1px solid #e2e8f0",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "18px",
+    padding: "20px 24px",
+    border: "1px solid #E2E8F0",
     marginBottom: "20px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+    boxShadow: "0 2px 10px rgba(15, 23, 42, 0.03)",
   },
   headerTitleRow: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    justifyContent: "space-between",
+    gap: "12px",
     flexWrap: "wrap",
-    marginBottom: "12px",
+    marginBottom: "16px",
+  },
+  titleGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
   },
   headerTitle: {
     margin: 0,
-    fontSize: "16px",
+    fontSize: "18px",
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#0F172A",
     whiteSpace: "nowrap",
   },
   countBadge: {
-    backgroundColor: "#eff6ff",
-    color: "#2563eb",
-    fontSize: "10px",
-    fontWeight: "600",
-    padding: "2px 6px",
-    borderRadius: "6px",
+    backgroundColor: "#EFF6FF",
+    color: "#2563EB",
+    fontSize: "11px",
+    fontWeight: "800",
+    padding: "3px 8px",
+    borderRadius: "9999px",
+    border: "1px solid #DBEAFE",
     whiteSpace: "nowrap",
   },
-  headerDot: {
-    color: "#cbd5e1",
-    fontSize: "12px",
-  },
   headerSubInline: {
-    fontSize: "12px",
-    color: "#64748b",
+    fontSize: "12.5px",
+    color: "#64748B",
   },
 
-  // Minimal Modern Search Input
+  // Minimal Modern Search Input with Icon
   searchContainer: {
-    marginBottom: "12px",
+    marginBottom: "16px",
+  },
+  searchWrapper: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+  },
+  searchIcon: {
+    position: "absolute",
+    left: "14px",
+    pointerEvents: "none",
+  },
+  clearSearchBtn: {
+    position: "absolute",
+    right: "12px",
+    background: "none",
+    border: "none",
+    color: "#64748B",
+    cursor: "pointer",
+    fontSize: "12px",
+    padding: "4px 8px",
   },
   minimalSearchInput: {
     width: "100%",
-    padding: "10px 16px",
-    borderRadius: "20px",
-    border: "1px solid #cbd5e1",
-    backgroundColor: "#f8fafc",
-    fontSize: "13px",
+    padding: "11px 36px 11px 40px",
+    borderRadius: "12px",
+    border: "1px solid #CBD5E1",
+    backgroundColor: "#F8FAFC",
+    fontSize: "13.5px",
     outline: "none",
-    color: "#0f172a",
+    color: "#0F172A",
     boxSizing: "border-box",
-    transition: "border-color 0.2s, background-color 0.2s",
+    transition: "border-color 0.15s, background-color 0.15s",
   },
 
   // Minimal Horizontal Date Strip
   minimalDateStrip: {
     display: "flex",
-    gap: "6px",
+    gap: "8px",
     overflowX: "auto",
     paddingBottom: "4px",
     scrollbarWidth: "none",
@@ -397,15 +452,15 @@ const styles = {
 
   // Box 1: Custom Date Selector Pill
   customDateBox: {
-    flex: "0 0 54px",
+    flex: "0 0 60px",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "6px 2px",
-    borderRadius: "10px",
-    backgroundColor: "#eff6ff",
-    border: "1px solid #2563eb",
+    padding: "8px 4px",
+    borderRadius: "12px",
+    backgroundColor: "#EFF6FF",
+    border: "1px solid #2563EB",
     cursor: "pointer",
     position: "relative",
   },
@@ -486,22 +541,32 @@ const styles = {
   },
 
   emptyCard: {
-    backgroundColor: "#ffffff",
-    padding: "40px",
-    borderRadius: "14px",
-    border: "1px dashed #cbd5e1",
+    backgroundColor: "#FFFFFF",
+    padding: "48px 24px",
+    borderRadius: "20px",
+    border: "1px dashed #CBD5E1",
     textAlign: "center",
+  },
+  emptyIconBox: {
+    width: "52px",
+    height: "52px",
+    borderRadius: "14px",
+    backgroundColor: "#F1F5F9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto 14px auto",
   },
   emptyTitle: {
     margin: "0 0 4px 0",
     fontSize: "16px",
-    fontWeight: "700",
-    color: "#0f172a",
+    fontWeight: "800",
+    color: "#0F172A",
   },
   emptySub: {
     margin: 0,
     fontSize: "13px",
-    color: "#64748b",
+    color: "#64748B",
   },
 
   cardList: {
@@ -510,22 +575,22 @@ const styles = {
     gap: "12px",
   },
   apptCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: "12px",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "16px",
     padding: "16px 20px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E2E8F0",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: "16px",
-    flexWrap: "wrap",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+    boxShadow: "0 2px 8px rgba(15, 23, 42, 0.02)",
+    transition: "all 0.15s ease",
   },
 
   timePill: {
-    backgroundColor: "#eff6ff",
-    border: "1px solid #bfdbfe",
-    borderRadius: "10px",
+    backgroundColor: "#EFF6FF",
+    border: "1px solid #BFDBFE",
+    borderRadius: "12px",
     padding: "8px 14px",
     textAlign: "center",
     minWidth: "75px",
@@ -535,13 +600,13 @@ const styles = {
     display: "block",
     fontSize: "15px",
     fontWeight: "800",
-    color: "#2563eb",
+    color: "#2563EB",
   },
   timeEndVal: {
     display: "block",
     fontSize: "11px",
     fontWeight: "600",
-    color: "#64748b",
+    color: "#64748B",
   },
 
   patientInfoCol: {
@@ -557,27 +622,39 @@ const styles = {
   patientName: {
     margin: 0,
     fontSize: "15px",
-    fontWeight: "700",
-    color: "#0f172a",
+    fontWeight: "800",
+    color: "#0F172A",
   },
   ticketPill: {
     fontSize: "11px",
     color: "#475569",
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#F1F5F9",
     padding: "2px 6px",
-    borderRadius: "4px",
+    borderRadius: "6px",
     fontFamily: "monospace",
+    fontWeight: "600",
   },
   prescriptionText: {
     margin: 0,
     fontSize: "13px",
     color: "#334155",
+    lineHeight: "1.4",
   },
   waitingText: {
     margin: 0,
-    fontSize: "12px",
-    color: "#64748b",
+    fontSize: "12.5px",
+    color: "#64748B",
     fontWeight: "500",
+    display: "flex",
+    alignItems: "center",
+  },
+  waitingDot: {
+    display: "inline-block",
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    backgroundColor: "#D97706",
+    marginRight: "6px",
   },
 
   actionGroup: {
@@ -588,34 +665,38 @@ const styles = {
     flexShrink: 0,
   },
   historyBtn: {
-    padding: "8px 12px",
-    backgroundColor: "#ffffff",
-    color: "#2563eb",
-    border: "1px solid #cbd5e1",
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: "600",
+    padding: "8px 14px",
+    backgroundColor: "#EFF6FF",
+    color: "#2563EB",
+    border: "1px solid #BFDBFE",
+    borderRadius: "8px",
+    fontSize: "12.5px",
+    fontWeight: "700",
     cursor: "pointer",
+    transition: "all 0.15s ease",
   },
   completeBtn: {
-    padding: "8px 14px",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
+    padding: "8px 16px",
+    backgroundColor: "#16A34A",
+    color: "#FFFFFF",
     border: "none",
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: "600",
+    borderRadius: "8px",
+    fontSize: "12.5px",
+    fontWeight: "700",
     cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(22, 163, 74, 0.2)",
+    transition: "all 0.15s ease",
   },
   cancelBtn: {
-    padding: "8px 12px",
-    backgroundColor: "#ffffff",
-    color: "#dc2626",
-    border: "1px solid #fca5a5",
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: "600",
+    padding: "8px 14px",
+    backgroundColor: "#FEF2F2",
+    color: "#DC2626",
+    border: "1px solid #FECACA",
+    borderRadius: "8px",
+    fontSize: "12.5px",
+    fontWeight: "700",
     cursor: "pointer",
+    transition: "all 0.15s ease",
   },
 
   // BADGES

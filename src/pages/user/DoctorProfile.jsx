@@ -276,8 +276,8 @@ function DoctorProfile() {
           </div>
         </div>
 
-        {/* Glassmorphism Stats Card */}
-        <div className="frosted-glass" style={styles.statsCard}>
+        {/* Stats Card */}
+        <div style={styles.statsCard}>
           <div style={styles.statCol}>
             <h4 style={styles.statVal}>{doctor.experienceYears || "10y+"}</h4>
             <span style={styles.statLabel}>Experience</span>
@@ -546,7 +546,7 @@ function DoctorProfile() {
 const styles = {
   pageCanvas: {
     minHeight: "100vh",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "transparent",
     display: "flex",
     justifyContent: "center",
     padding: "16px 12px 30px",
@@ -568,13 +568,15 @@ const styles = {
     width: "36px",
     height: "36px",
     borderRadius: "50%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--card-bg, #FFFFFF)",
+    backdropFilter: "var(--card-blur, blur(16px))",
+    WebkitBackdropFilter: "var(--card-blur, blur(16px))",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
-    boxShadow: "0 2px 8px rgba(15, 23, 42, 0.05)",
-    border: "1px solid #E2E8F0",
+    boxShadow: "var(--card-shadow, 0 2px 8px rgba(15, 23, 42, 0.05))",
+    border: "var(--card-border, 1px solid #E2E8F0)",
   },
   navTitle: {
     fontSize: "17px",
@@ -631,10 +633,9 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    boxShadow: "0 8px 20px rgba(15, 23, 42, 0.03)",
-    border: "1px solid rgba(226, 232, 240, 0.8)",
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
-    backdropFilter: "blur(12px)",
+    boxShadow: "0 1px 3px rgba(15, 23, 42, 0.03)",
+    border: "1px solid #E2E8F0",
+    backgroundColor: "#F8FAFC",
     marginBottom: "20px",
   },
   statCol: {
@@ -694,7 +695,7 @@ const styles = {
     borderRadius: "18px",
     backgroundColor: "#F8FAFC",
     border: "1.5px dashed #93C5FD",
-    boxShadow: "0 2px 5px rgba(15, 23, 42, 0.04)",
+    boxShadow: "0 1px 3px rgba(15, 23, 42, 0.03)",
     cursor: "pointer",
     flexShrink: 0,
     transition: "all 0.15s ease",
@@ -744,9 +745,9 @@ const styles = {
     maxHeight: "85vh",
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 -12px 40px rgba(15, 23, 42, 0.25)",
+    boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.18)",
     overflow: "hidden",
-    border: "1px solid rgba(226, 232, 240, 0.9)",
+    border: "1px solid rgba(226, 232, 240, 0.95)",
     borderBottom: "none",
   },
   sheetHandleRow: {
@@ -755,7 +756,7 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "transparent",
     cursor: "pointer",
   },
   sheetDragPill: {
@@ -815,17 +816,17 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: "12px",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "var(--input-bg, #F8FAFC)",
     padding: "6px 8px",
     borderRadius: "12px",
-    border: "1px solid #E2E8F0",
+    border: "var(--card-border, 1px solid #E2E8F0)",
   },
   calMonthNavBtn: {
     width: "28px",
     height: "28px",
     borderRadius: "8px",
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #CBD5E1",
+    backgroundColor: "var(--card-bg, #FFFFFF)",
+    border: "var(--card-border, 1px solid #CBD5E1)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -983,15 +984,15 @@ const styles = {
     width: "46px",
     height: "64px",
     borderRadius: "9999px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
     flexShrink: 0,
-    border: "1px solid #F1F5F9",
-    boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)",
+    border: "1px solid #E2E8F0",
+    boxShadow: "0 1px 3px rgba(15, 23, 42, 0.02)",
   },
   dayName: {
     fontSize: "11px",
@@ -1021,8 +1022,8 @@ const styles = {
     backgroundColor: "#FFFFFF",
     borderRadius: "24px",
     padding: "20px",
-    boxShadow: "0 6px 20px rgba(15, 23, 42, 0.03)",
-    border: "1px solid #F1F5F9",
+    boxShadow: "0 4px 14px rgba(15, 23, 42, 0.04)",
+    border: "1px solid #E2E8F0",
     marginBottom: "24px",
   },
   slotHeading: {
@@ -1041,7 +1042,7 @@ const styles = {
     borderRadius: "9999px",
     backgroundColor: "#F8FAFC",
     border: "1px solid #E2E8F0",
-    color: "#334155",
+    color: "#0F172A",
     fontSize: "12px",
     fontWeight: "600",
     cursor: "pointer",
