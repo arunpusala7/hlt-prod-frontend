@@ -58,15 +58,20 @@ const AppointmentReceipt = ({ appointment, onClose }) => {
     "HC-" + Math.random().toString(36).substring(2, 8).toUpperCase();
   const displayTicketId = rawTicket.startsWith("HC-") ? rawTicket : `HC-${rawTicket}`;
 
-  // Date Formatting: e.g. "Sun, 06 Sep 2026"
+  // Date Formatting: e.g. "Wed, 09 Sep 2026" (Timezone shift proof)
   const formatDate = (dateStr) => {
     if (!dateStr) return "Today";
     try {
-      const d = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T00:00:00`);
-      if (isNaN(d.getTime())) return dateStr;
-      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      return `${days[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth()]} ${d.getFullYear()}`;
+      const raw = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+      const parts = raw.split("-");
+      if (parts.length === 3) {
+        const [y, m, d] = parts.map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        return `${days[dateObj.getDay()]}, ${String(d).padStart(2, "0")} ${months[m - 1]} ${y}`;
+      }
+      return dateStr;
     } catch {
       return dateStr;
     }

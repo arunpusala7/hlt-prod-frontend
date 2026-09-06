@@ -6,6 +6,7 @@ import { getDoctorPortrait, getSpecialtyIcon } from "../../utils/doctorAvatars";
 import { formatDoctorName } from "../../utils/formatDoctorName";
 import AppointmentReceipt from "./AppointmentReceipt";
 import CancelReasonDropdown from "../../components/CancelReasonDropdown";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -270,7 +271,7 @@ function UserOverview({
 
   // In-Page Doctor Booking Modal State (Screen 3)
   const [bookingDoctor, setBookingDoctor] = useState(null);
-  const [selectedBookingDate, setSelectedBookingDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedBookingDate, setSelectedBookingDate] = useState(getLocalDateString());
   const [bookingSlots, setBookingSlots] = useState([]);
   const [selectedBookingSlot, setSelectedBookingSlot] = useState(null);
   const [loadingBookingSlots, setLoadingBookingSlots] = useState(false);
@@ -389,7 +390,7 @@ function UserOverview({
   // Open In-Page Booking Sheet
   const handleOpenBookingModal = (doc) => {
     setBookingDoctor(doc);
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getLocalDateString();
     setSelectedBookingDate(todayStr);
     setSelectedBookingSlot(null);
     fetchSlotsForDoctor(doc.id, todayStr);
@@ -403,13 +404,13 @@ function UserOverview({
     }
   };
 
-  const todayIso = new Date().toISOString().split("T")[0];
+  const todayIso = getLocalDateString();
 
-  // 7 Days Horizontal Date Selector Strip
+  // 7 Days Horizontal Date Selector Strip (Timezone-safe: local day and local ISO match 100%)
   const dateStrip = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
-    const isoDate = d.toISOString().split("T")[0];
+    const isoDate = getLocalDateString(d);
     const dayName = i === 0 ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" });
     const dateNum = d.getDate();
     return { isoDate, dayName, dateNum };
@@ -529,7 +530,7 @@ function UserOverview({
       // Fallback verified payment if Razorpay gateway popup is blocked
       if (!isLoaded || !window.Razorpay) {
         toast("Finalizing verified booking...", { icon: '💳' });
-        await api.post("/api/payments/verify-payment", {
+        const verifyRes = await api.post("/api/payments/verify-payment", {
           razorpayOrderId: orderId,
           razorpayPaymentId: "pay_test_" + Math.random().toString(36).substring(2, 10),
           razorpaySignature: "sig_test_" + Math.random().toString(36).substring(2, 10),
@@ -543,8 +544,11 @@ function UserOverview({
         toast.success("Appointment Successfully Confirmed!");
         fetchUpcomingAppointment();
 
+        const realTicketId = verifyRes.data?.ticketId || (verifyRes.data?.appointmentId ? `HC-${verifyRes.data.appointmentId}` : "HC-PASS");
+        const realApptId = verifyRes.data?.appointmentId || orderId;
+
         const bookedPass = {
-          appointmentId: orderId,
+          appointmentId: realApptId,
           doctorId: bookingDoctor.id,
           doctorName: bookingDoctor.name,
           specialization: bookingDoctor.specialization,
@@ -555,7 +559,7 @@ function UserOverview({
           startTime: formatTime(selectedBookingSlot.startTime),
           endTime: formatTime(selectedBookingSlot.endTime),
           userName: userName,
-          ticketId: "HC-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Math.floor(1000 + Math.random() * 9000),
+          ticketId: realTicketId,
           status: "BOOKED"
         };
         setBookingDoctor(null);
@@ -573,7 +577,7 @@ function UserOverview({
         order_id: orderId,
         handler: async function (response) {
           try {
-            await api.post("/api/payments/verify-payment", {
+            const verifyRes = await api.post("/api/payments/verify-payment", {
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
@@ -587,8 +591,11 @@ function UserOverview({
             toast.success("Appointment Successfully Confirmed!");
             fetchUpcomingAppointment();
 
+            const realTicketId = verifyRes.data?.ticketId || (verifyRes.data?.appointmentId ? `HC-${verifyRes.data.appointmentId}` : "HC-PASS");
+            const realApptId = verifyRes.data?.appointmentId || response.razorpay_order_id || orderId;
+
             const bookedPass = {
-              appointmentId: response.razorpay_order_id || orderId,
+              appointmentId: realApptId,
               doctorId: bookingDoctor.id,
               doctorName: bookingDoctor.name,
               specialization: bookingDoctor.specialization,
@@ -599,7 +606,7 @@ function UserOverview({
               startTime: formatTime(selectedBookingSlot.startTime),
               endTime: formatTime(selectedBookingSlot.endTime),
               userName: userName,
-              ticketId: "HC-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Math.floor(1000 + Math.random() * 9000),
+              ticketId: realTicketId,
               status: "BOOKED"
             };
             setBookingDoctor(null);
@@ -655,7 +662,7 @@ function UserOverview({
     setReschedulingAppt(appt);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const defaultDateStr = tomorrow.toISOString().split("T")[0];
+    const defaultDateStr = getLocalDateString(tomorrow);
     setRescheduleDate(defaultDateStr);
     setSelectedRescheduleSlot(null);
     fetchRescheduleSlots(appt, defaultDateStr);

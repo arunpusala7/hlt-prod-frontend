@@ -7,6 +7,7 @@ import AppointmentReceipt from "./AppointmentReceipt";
 import CustomDatePicker from "../../components/CustomDatePicker";
 import { formatDoctorName } from "../../utils/formatDoctorName";
 import { getDoctorPortrait, getSpecialtyIcon } from "../../utils/doctorAvatars";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -100,7 +101,7 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
 
   const handleDoctorSelect = (doc) => {
     setSelectedDoctor(doc);
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getLocalDateString();
     setDate(todayStr);
     setSelectedSlot(null);
     fetchSlots(doc.id, todayStr);
@@ -161,7 +162,7 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
       // Fallback if Razorpay SDK popup is offline
       if (!isScriptLoaded || !window.Razorpay) {
         toast("Proceeding with verified test payment...", { icon: '💳' });
-        await api.post("/api/payments/verify-payment", {
+        const verifyRes = await api.post("/api/payments/verify-payment", {
           razorpayOrderId: orderId,
           razorpayPaymentId: "pay_test_" + Math.random().toString(36).substring(2, 10),
           razorpaySignature: "sig_test_" + Math.random().toString(36).substring(2, 10),
@@ -171,6 +172,9 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
           startTime: formatTime(selectedSlot.startTime),
           endTime: formatTime(selectedSlot.endTime)
         });
+
+        const realTicketId = verifyRes.data?.ticketId || (verifyRes.data?.appointmentId ? `HC-${verifyRes.data.appointmentId}` : "HC-PASS");
+        const realApptId = verifyRes.data?.appointmentId || orderId;
 
         toast.success("Payment Verified & Appointment Booked!");
         setConfirmedAppointment({
@@ -184,7 +188,7 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
           startTime: selectedSlot.startTime,
           endTime: selectedSlot.endTime,
           userName: localStorage.getItem("userName") || "Alex",
-          ticketId: "HC-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Math.floor(1000 + Math.random() * 9000),
+          ticketId: realTicketId,
           status: "BOOKED"
         });
         return;
@@ -200,7 +204,7 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
         order_id: orderId,
         handler: async function (response) {
           try {
-            await api.post("/api/payments/verify-payment", {
+            const verifyRes = await api.post("/api/payments/verify-payment", {
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
@@ -211,8 +215,12 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
               endTime: formatTime(selectedSlot.endTime)
             });
 
+            const realTicketId = verifyRes.data?.ticketId || (verifyRes.data?.appointmentId ? `HC-${verifyRes.data.appointmentId}` : "HC-PASS");
+            const realApptId = verifyRes.data?.appointmentId || response.razorpay_order_id || orderId;
             let realMemberName = memberName || localStorage.getItem("userName");
+
             setConfirmedAppointment({
+              appointmentId: realApptId,
               doctorId: selectedDoctor.id,
               doctorName: selectedDoctor.name,
               specialization: selectedDoctor.specialization,
@@ -223,7 +231,7 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
               startTime: selectedSlot.startTime,
               endTime: selectedSlot.endTime,
               userName: realPatientName || "Alex",
-              ticketId: "HC-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Math.floor(1000 + Math.random() * 9000),
+              ticketId: realTicketId,
               status: "BOOKED"
             });
           } catch (verifyErr) {

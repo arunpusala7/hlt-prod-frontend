@@ -2,12 +2,13 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import api from "../../api/api";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 const TodayAppointments = ({ onViewHistory, isLoadingHistory }) => {
   const [appointments, setAppointments] = useState([]);
   const [filteredAppts, setFilteredAppts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [searchTerm, setSearchTerm] = useState("");
   const dateInputRef = useRef(null);
 
@@ -15,14 +16,14 @@ const TodayAppointments = ({ onViewHistory, isLoadingHistory }) => {
   const [cancelModal, setCancelModal] = useState({ show: false, id: null });
   const [inputText, setInputText] = useState("");
 
-  // Generate next 10 days for minimal date strip
+  // Generate next 10 days for minimal date strip (Timezone-safe: local date and ISO match 100%)
   const quickDates = useMemo(() => {
     const dates = [];
     const base = new Date();
     for (let i = 0; i < 10; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
-      const iso = d.toISOString().split("T")[0];
+      const iso = getLocalDateString(d);
       const dayName = i === 0 ? "TODAY" : d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
       const monthName = d.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
       const dayNum = d.getDate();

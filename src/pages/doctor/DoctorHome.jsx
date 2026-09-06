@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api/api";
 import toast from "react-hot-toast";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 function DoctorHome({ doctor, setActiveTab }) {
   const [fee, setFee] = useState(doctor?.consultationFee || 500);
@@ -67,7 +68,7 @@ function DoctorHome({ doctor, setActiveTab }) {
         })
         .catch(() => {
           // Fallback: fetch today's stats from individual appointments
-          const today = new Date().toISOString().split("T")[0];
+          const today = getLocalDateString();
           api.get(`/api/doctor/appointments?date=${today}`)
             .then((res) => {
               const appts = res.data || [];

@@ -8,6 +8,7 @@ import DoctorHome from "./DoctorHome";
 import TodayAppointments from "./TodayAppointments";
 import DoctorSchedule from "./DoctorSchedule"; 
 import PatientHistoryDrawer from "./PatientHistoryDrawer"; 
+import { getLocalDateString } from "../../utils/dateUtils"; 
 
 function DoctorDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -33,7 +34,7 @@ function DoctorDashboard() {
 
   const fetchQueueCount = async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString();
       const res = await api.get(`/api/doctor/appointments?date=${today}`);
       const list = res.data || [];
       const pending = list.filter(a => a.status === "BOOKED" || a.status === "RESCHEDULED").length;

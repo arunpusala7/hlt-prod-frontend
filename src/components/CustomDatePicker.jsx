@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { getLocalDateString } from "../utils/dateUtils";
 
 function CustomDatePicker({ selectedDate, onChange, minDate }) {
   const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -6,17 +7,17 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
     return selectedDate ? new Date(selectedDate) : new Date();
   });
 
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = useMemo(() => getLocalDateString(), []);
   const activeMinDateStr = minDate || todayStr;
 
-  // Generate next 14 days for quick horizontal strip
+  // Generate next 14 days for quick horizontal strip (Timezone-safe)
   const quickDates = useMemo(() => {
     const dates = [];
     const base = new Date();
     for (let i = 0; i < 14; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
-      const iso = d.toISOString().split("T")[0];
+      const iso = getLocalDateString(d);
       const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
       const dateNum = d.getDate();
       dates.push({ iso, isoDate: iso, dayName, dateNum });

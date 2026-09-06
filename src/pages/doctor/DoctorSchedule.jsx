@@ -5,6 +5,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "./DoctorSchedule.css";
 import api from "../../api/api";
 import toast from "react-hot-toast";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 const localizer = momentLocalizer(moment);
 
@@ -12,7 +13,7 @@ const DoctorSchedule = () => {
   const [events, setEvents] = useState([]);
   const [rawSlots, setRawSlots] = useState([]);
   const [viewDate, setViewDate] = useState(new Date());
-  const [selectedMobileDate, setSelectedMobileDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedMobileDate, setSelectedMobileDate] = useState(getLocalDateString());
   const [view, setView] = useState("week");
 
   const doctorId = localStorage.getItem("userId");

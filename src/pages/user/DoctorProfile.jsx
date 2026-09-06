@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDoctorName } from "../../utils/formatDoctorName";
 import { getDoctorPortrait } from "../../utils/doctorAvatars";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 function DoctorProfile() {
   const { id } = useParams();
@@ -14,7 +15,7 @@ function DoctorProfile() {
   const [loading, setLoading] = useState(true);
 
   // Slot booking state
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [availabilities, setAvailabilities] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -36,7 +37,7 @@ function DoctorProfile() {
       const res = await api.get(`/api/doctors/${id}`);
       setDoctor(res.data);
     } catch (err) {
-      toast.error("Failed to load doctor profile");
+      toast.error("Failed to load doctor details");
       // Fallback preview
       setDoctor({
         id: id,
@@ -52,30 +53,29 @@ function DoctorProfile() {
 
   const fetchDoctorSlots = async () => {
     setLoadingSlots(true);
+    setSelectedSlot(null);
     try {
       const res = await api.get(`/api/availability/doctor/${id}?date=${selectedDate}`);
-      const slotsArray = res.data?.availableSlots || res.data?.slots || (Array.isArray(res.data) ? res.data : []);
-      // STRICTLY reflect actual backend availability without injecting fake mock slots
-      setAvailabilities(slotsArray);
-    } catch (err) {
-      console.error("Failed to load slots from backend", err);
+      const slotsList = res.data?.availableSlots || res.data?.slots || (Array.isArray(res.data) ? res.data : []);
+      setAvailabilities(slotsList);
+    } catch {
       setAvailabilities([]);
     } finally {
       setLoadingSlots(false);
     }
   };
 
-  // Generate 7 upcoming days for horizontal date selector strip
+  // Generate 7 upcoming days for horizontal date selector strip (Timezone-safe)
   const dateStrip = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
-    const isoDate = d.toISOString().split("T")[0];
+    const isoDate = getLocalDateString(d);
     const dayName = i === 0 ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" });
     const dateNum = d.getDate();
     return { isoDate, dayName, dateNum };
   });
 
-  const todayIso = new Date().toISOString().split("T")[0];
+  const todayIso = getLocalDateString();
   const [showCustomCalendar, setShowCustomCalendar] = useState(false);
   const [calendarViewDate, setCalendarViewDate] = useState(() => new Date());
 
