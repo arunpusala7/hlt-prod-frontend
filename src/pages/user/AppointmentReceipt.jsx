@@ -1,137 +1,215 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { motion } from "framer-motion";
+import { toast } from "react-hot-toast";
 import { formatDoctorName } from "../../utils/formatDoctorName";
+import { getDoctorPortrait } from "../../utils/doctorAvatars";
 
 const AppointmentReceipt = ({ appointment, onClose }) => {
   const receiptRef = useRef();
+  const [isDownloading, setIsDownloading] = useState(false);
 
-  const downloadPDF = async () => {
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  if (!appointment) return null;
+
+  // Normalized Info
+  const doctorName = formatDoctorName(appointment.doctorName || appointment.name || "Doctor");
+  const specialization =
+    appointment.doctorSpecialization ||
+    appointment.specialization ||
+    "Specialist";
+  const doctorId = appointment.doctorId || appointment.id || 1;
+  const patientName =
+    appointment.userName &&
+    appointment.userName !== "Valued Patient" &&
+    appointment.userName !== "Patient"
+      ? appointment.userName
+      : localStorage.getItem("userName") || "Alex";
+
+  const rawTicket =
+    appointment.ticketId ||
+    (appointment.appointmentId ? `HC-${appointment.appointmentId}` : null) ||
+    "HC-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+  const displayTicketId = rawTicket.startsWith("HC-") ? rawTicket : `HC-${rawTicket}`;
+
+  // Date Formatting: e.g. "Sun, 06 Sep 2026"
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "Today";
+    try {
+      const d = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T00:00:00`);
+      if (isNaN(d.getTime())) return dateStr;
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return `${days[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Time Formatting: e.g. "10:00 AM"
+  const formatTime12h = (timeStr) => {
+    if (!timeStr) return "10:00 AM";
+    try {
+      const parts = timeStr.split(":");
+      let hours = parseInt(parts[0], 10);
+      const mins = parts[1] ? parts[1].substring(0, 2) : "00";
+      if (isNaN(hours)) return timeStr;
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      return `${String(hours).padStart(2, "0")}:${mins} ${ampm}`;
+    } catch {
+      return timeStr;
+    }
+  };
+
+  const formattedDate = formatDate(appointment.appointmentDate || appointment.date);
+  const startTime = formatTime12h(appointment.startTime);
+  const endTime = formatTime12h(
+    appointment.endTime ||
+      (appointment.startTime ? appointment.startTime.replace(/:\d\d$/, ":30") : null)
+  );
+
+  // High-Resolution PDF Download
+  const downloadPDF = async (e) => {
+    e.stopPropagation();
     const element = receiptRef.current;
-    
-    // 1. Capture the receipt design as high resolution image
-    const canvas = await html2canvas(element, { scale: 3, useCORS: true });
-    const data = canvas.toDataURL("image/png");
+    if (!element) return;
 
-    // 2. Generate PDF
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(data);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
-    pdf.addImage(data, "PNG", 0, 10, pdfWidth, pdfHeight);
-    pdf.save(`HealthConnect-Pass-${appointment.ticketId || "booking"}.pdf`);
+    setIsDownloading(true);
+    toast("Saving pass...", { icon: "📥" });
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#FFFFFF",
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      const yOffset = Math.max(16, (297 - pdfHeight) / 2);
+      pdf.addImage(imgData, "PNG", 15, yOffset, pdfWidth - 30, ((pdfWidth - 30) * canvas.height) / canvas.width);
+      pdf.save(`HealthConnect-Pass-${displayTicketId}.pdf`);
+      toast.success("Pass downloaded successfully!");
+    } catch (err) {
+      console.error("PDF download failed", err);
+      toast.error("Could not generate PDF");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
-    <div style={styles.overlay}>
+    <div style={styles.sheetOverlay} onClick={onClose}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        transition={{ duration: 0.25 }}
-        style={styles.modal}
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 320, mass: 0.85 }}
+        style={styles.bottomSheet}
+        onClick={(e) => e.stopPropagation()}
       >
-        
-        {/* === E-TICKET PASS CONTAINER (DOWNLOAD TARGET) === */}
-        <div ref={receiptRef} style={styles.ticketContainer}>
-          {/* Top Brand Header */}
-          <div style={styles.ticketHeader}>
-            <div style={styles.brandRow}>
-              <div style={styles.brandTitle}>
-                <span style={{ color: '#ffffff', fontWeight: "900" }}>Health</span>
-                <span style={{ color: '#93c5fd', fontWeight: "900" }}>Connect</span>
-              </div>
-              <span style={styles.ticketBadge}>CONFIRMED MEDICAL PASS</span>
-            </div>
-            <p style={styles.headerSub}>Official Digital Consultation Voucher</p>
-          </div>
+        {/* Top Drag Handle Bar */}
+        <div style={styles.dragHandleRow} onClick={onClose} title="Slide down to close">
+          <div style={styles.dragPill}></div>
+        </div>
 
-          {/* Ticket Body Content */}
-          <div style={styles.ticketBody}>
-            {/* Left Main Column */}
-            <div style={styles.leftCol}>
-              <div style={styles.fieldGroup}>
-                <span style={styles.fieldLabel}>PATIENT NAME</span>
-                <h3 style={styles.patientName}>
-                  {appointment.userName && appointment.userName !== "Valued Patient" 
-                    ? appointment.userName 
-                    : (localStorage.getItem("userName") || "Patient User")}
-                </h3>
-              </div>
-
-              <div style={styles.fieldGroup}>
-                <span style={styles.fieldLabel}>ATTENDING SPECIALIST</span>
-                <h3 style={styles.doctorName}>{formatDoctorName(appointment.doctorName)}</h3>
-                <span style={styles.specTag}>{appointment.specialization}</span>
-              </div>
-
-              <div style={styles.infoGrid}>
-                <div style={styles.infoBox}>
-                  <span style={styles.fieldLabel}>DATE</span>
-                  <strong style={styles.infoVal}>{appointment.appointmentDate || appointment.date}</strong>
-                </div>
-
-                <div style={styles.infoBox}>
-                  <span style={styles.fieldLabel}>TIME SLOT</span>
-                  <strong style={styles.infoVal}>{appointment.startTime}</strong>
+        {/* Scrollable Pass Content */}
+        <div style={styles.sheetScrollableBody}>
+          <div ref={receiptRef} style={styles.cleanPassCard}>
+            {/* Header: Title + Status + Close */}
+            <div style={styles.topRow}>
+              <div>
+                <span style={styles.passLabel}>APPOINTMENT PASS</span>
+                <div style={styles.statusRow}>
+                  <span style={styles.statusDot}></span>
+                  <span style={styles.statusText}>Confirmed</span>
                 </div>
               </div>
 
-              <div style={styles.hospitalRow}>
-                <span style={styles.fieldLabel}>CLINIC LOCATION</span>
-                <p style={styles.hospitalText}>HealthConnect Super Specialty Hospital & Center</p>
+              <button onClick={onClose} style={styles.closeBtn} title="Close Pass">
+                ✕
+              </button>
+            </div>
+
+            {/* Doctor Info */}
+            <div style={styles.docRow}>
+              <img
+                src={getDoctorPortrait(doctorId, doctorName)}
+                alt={doctorName}
+                style={styles.docAvatar}
+              />
+              <div>
+                <h3 style={styles.docName}>{doctorName}</h3>
+                <span style={styles.specBadge}>{specialization}</span>
               </div>
             </div>
 
-            {/* Perforated Divider */}
-            <div style={styles.dividerCol}>
-              <div style={styles.notchTop}></div>
-              <div style={styles.dashedLine}></div>
-              <div style={styles.notchBottom}></div>
+            <div style={styles.divider}></div>
+
+            {/* Patient & Timings (Only Needed Info) */}
+            <div style={styles.infoRow}>
+              <div>
+                <span style={styles.infoLabel}>PATIENT</span>
+                <strong style={styles.infoVal}>{patientName}</strong>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <span style={styles.infoLabel}>TIME</span>
+                <strong style={styles.infoVal}>{startTime} – {endTime}</strong>
+              </div>
             </div>
 
-            {/* Right QR Scanner Column */}
-            <div style={styles.rightCol}>
-              <span style={styles.qrLabel}>RECEPTION QR CHECK-IN</span>
-              
+            <div style={styles.infoRow}>
+              <div>
+                <span style={styles.infoLabel}>DATE</span>
+                <strong style={styles.infoVal}>{formattedDate}</strong>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <span style={styles.infoLabel}>TICKET ID</span>
+                <strong style={styles.ticketIdVal}>{displayTicketId}</strong>
+              </div>
+            </div>
+
+            {/* Centered Minimal QR Code */}
+            <div style={styles.qrSection}>
               <div style={styles.qrBox}>
-                <QRCodeCanvas 
-                  value={appointment.ticketId || "HEALTHCONNECT-CONFIRMED"} 
-                  size={120} 
-                  level={"H"}
-                  includeMargin={true}
+                <QRCodeCanvas
+                  value={`https://healthconnect.app/verify?ticketId=${encodeURIComponent(displayTicketId)}`}
+                  size={120}
+                  level="M"
                 />
               </div>
-
-              <div style={styles.ticketIdBadge}>
-                <span style={{ fontSize: "10px", color: "#64748b", fontWeight: "700" }}>TICKET ID</span>
-                <strong style={{ fontSize: "12px", color: "#0f172a", fontFamily: "monospace" }}>
-                  {appointment.ticketId ? appointment.ticketId.substring(0, 14) : "TCK-CONFIRMED"}
-                </strong>
-              </div>
-
-              <span style={styles.statusPill}>● PAID & CONFIRMED</span>
+              <span style={styles.qrHint}>Scan at reception for direct check-in</span>
             </div>
-          </div>
-
-          {/* Ticket Footer */}
-          <div style={styles.ticketFooter}>
-            <p style={styles.footerNote}>
-              Please show this digital QR ticket at the hospital reception desk upon arrival.
-            </p>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div style={styles.actionsRow}>
-          <button onClick={downloadPDF} style={styles.btnDownload}>
-            📥 Download PDF Pass
+        {/* Pinned Bottom Actions */}
+        <div style={styles.bottomBar}>
+          <button
+            onClick={downloadPDF}
+            disabled={isDownloading}
+            style={styles.btnDownload}
+          >
+            {isDownloading ? "Saving..." : "📥 Download Pass"}
           </button>
           <button onClick={onClose} style={styles.btnClose}>
-            Close
+            Done
           </button>
         </div>
       </motion.div>
@@ -140,239 +218,209 @@ const AppointmentReceipt = ({ appointment, onClose }) => {
 };
 
 const styles = {
-  overlay: {
+  sheetOverlay: {
     position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(15, 23, 42, 0.75)",
+    inset: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
     backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
     display: "flex",
-    justifyContent: "center",
+    flexDirection: "column",
+    justifyContent: "flex-end",
     alignItems: "center",
-    zIndex: 2000,
-    padding: "16px",
-    boxSizing: "border-box",
+    zIndex: 100000,
   },
-  modal: {
+  bottomSheet: {
     width: "100%",
-    maxWidth: "680px",
-  },
-  
-  ticketContainer: {
-    backgroundColor: "#ffffff",
-    borderRadius: "20px",
+    maxWidth: "460px",
+    maxHeight: "88vh",
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: "28px",
+    borderTopRightRadius: "28px",
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 -10px 40px rgba(15, 23, 42, 0.25)",
+    border: "1px solid #E2E8F0",
+    borderBottom: "none",
     overflow: "hidden",
-    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-    border: "1px solid #e2e8f0",
   },
-  
-  ticketHeader: {
-    backgroundColor: "#2563eb",
-    padding: "20px 24px",
-    color: "#ffffff",
-  },
-  brandRow: {
+  dragHandleRow: {
+    width: "100%",
+    padding: "12px 0 6px 0",
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  brandTitle: {
-    fontSize: "20px",
-  },
-  ticketBadge: {
-    fontSize: "10px",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    border: "1px solid rgba(255, 255, 255, 0.3)",
-    color: "#ffffff",
-    padding: "4px 10px",
-    borderRadius: "20px",
-    fontWeight: "800",
-    letterSpacing: "0.05em",
-  },
-  headerSub: {
-    margin: "4px 0 0 0",
-    fontSize: "12px",
-    color: "#93c5fd",
-  },
-  
-  ticketBody: {
-    display: "flex",
-    position: "relative",
-    backgroundColor: "#ffffff",
-    flexWrap: "wrap",
-  },
-  leftCol: {
-    flex: "1 1 320px",
-    padding: "24px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "14px",
-  },
-  dividerCol: {
-    position: "relative",
-    width: "20px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  notchTop: {
-    width: "20px",
-    height: "10px",
-    backgroundColor: "#0f172a",
-    borderBottomLeftRadius: "10px",
-    borderBottomRightRadius: "10px",
-  },
-  dashedLine: {
-    width: "1px",
-    flex: 1,
-    borderLeft: "2px dashed #cbd5e1",
-    margin: "6px 0",
-  },
-  notchBottom: {
-    width: "20px",
-    height: "10px",
-    backgroundColor: "#0f172a",
-    borderTopLeftRadius: "10px",
-    borderTopRightRadius: "10px",
-  },
-  rightCol: {
-    flex: "1 1 200px",
-    padding: "24px",
-    backgroundColor: "#f8fafc",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
     justifyContent: "center",
-    textAlign: "center",
-    gap: "10px",
+    cursor: "pointer",
+    backgroundColor: "#FFFFFF",
   },
-  
-  fieldGroup: {},
-  fieldLabel: {
+  dragPill: {
+    width: "42px",
+    height: "5px",
+    borderRadius: "9999px",
+    backgroundColor: "#CBD5E1",
+  },
+  sheetScrollableBody: {
+    padding: "10px 20px 16px 20px",
+    overflowY: "auto",
+    flex: 1,
+  },
+  cleanPassCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "20px",
+    padding: "16px 18px",
+    border: "1px solid #F1F5F9",
+  },
+  topRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: "14px",
+  },
+  passLabel: {
     fontSize: "10px",
     fontWeight: "800",
-    color: "#94a3b8",
-    letterSpacing: "0.05em",
+    color: "#94A3B8",
+    letterSpacing: "0.08em",
     display: "block",
     marginBottom: "2px",
   },
-  patientName: {
-    margin: 0,
-    fontSize: "18px",
-    fontWeight: "900",
-    color: "#0f172a",
+  statusRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
   },
-  doctorName: {
+  statusDot: {
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    backgroundColor: "#16A34A",
+  },
+  statusText: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#16A34A",
+  },
+  closeBtn: {
+    width: "28px",
+    height: "28px",
+    borderRadius: "50%",
+    backgroundColor: "#F1F5F9",
+    border: "none",
+    color: "#64748B",
+    fontSize: "12px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  docRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "14px",
+  },
+  docAvatar: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "2px solid #E2E8F0",
+    backgroundColor: "#F8FAFC",
+  },
+  docName: {
     margin: 0,
     fontSize: "16px",
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#0F172A",
   },
-  specTag: {
+  specBadge: {
     display: "inline-block",
     fontSize: "11px",
-    fontWeight: "700",
-    backgroundColor: "#eff6ff",
-    color: "#2563eb",
-    padding: "2px 8px",
-    borderRadius: "6px",
-    marginTop: "4px",
+    fontWeight: "600",
+    color: "#2563EB",
+    marginTop: "2px",
   },
-
-  infoGrid: {
+  divider: {
+    height: "1px",
+    backgroundColor: "#F1F5F9",
+    margin: "0 0 14px 0",
+  },
+  infoRow: {
     display: "flex",
-    gap: "16px",
-    backgroundColor: "#f8fafc",
-    padding: "12px",
-    borderRadius: "10px",
-    border: "1px solid #e2e8f0",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: "12px",
   },
-  infoBox: {
-    flex: 1,
+  infoLabel: {
+    fontSize: "9.5px",
+    fontWeight: "800",
+    color: "#94A3B8",
+    letterSpacing: "0.06em",
+    display: "block",
+    marginBottom: "2px",
   },
   infoVal: {
     fontSize: "13px",
+    fontWeight: "700",
+    color: "#0F172A",
+    display: "block",
+  },
+  ticketIdVal: {
+    fontSize: "13px",
     fontWeight: "800",
-    color: "#0f172a",
+    fontFamily: "monospace",
+    color: "#2563EB",
+    display: "block",
   },
-
-  hospitalRow: {},
-  hospitalText: {
-    margin: "2px 0 0 0",
-    fontSize: "12px",
-    color: "#475569",
-    fontWeight: "600",
-  },
-  
-  qrLabel: {
-    fontSize: "10px",
-    fontWeight: "800",
-    color: "#64748b",
-    letterSpacing: "0.05em",
-  },
-  qrBox: {
-    padding: "10px",
-    backgroundColor: "#ffffff",
-    border: "1px solid #cbd5e1",
-    borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-  },
-  ticketIdBadge: {
+  qrSection: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
+    marginTop: "4px",
+    paddingTop: "14px",
+    borderTop: "1px dashed #E2E8F0",
   },
-  statusPill: {
-    backgroundColor: "#dcfce7",
-    color: "#166534",
-    padding: "4px 12px",
-    borderRadius: "20px",
-    fontSize: "11px",
-    fontWeight: "800",
+  qrBox: {
+    padding: "8px",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "12px",
+    border: "1px solid #E2E8F0",
   },
-  
-  ticketFooter: {
-    backgroundColor: "#f1f5f9",
-    padding: "12px 20px",
-    textAlign: "center",
-    borderTop: "1px solid #e2e8f0",
-  },
-  footerNote: {
-    margin: 0,
-    fontSize: "11px",
-    color: "#64748b",
+  qrHint: {
+    fontSize: "10.5px",
+    color: "#94A3B8",
     fontWeight: "500",
+    marginTop: "6px",
   },
-  
-  actionsRow: {
-    marginTop: "20px",
+  bottomBar: {
     display: "flex",
-    justifyContent: "center",
-    gap: "12px",
+    gap: "10px",
+    padding: "12px 20px 20px 20px",
+    borderTop: "1px solid #F1F5F9",
+    backgroundColor: "#FFFFFF",
   },
   btnDownload: {
-    padding: "12px 24px",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
+    flex: 1,
+    padding: "12px",
+    backgroundColor: "#2563EB",
+    color: "#FFFFFF",
+    borderRadius: "9999px",
     border: "none",
-    borderRadius: "10px",
-    fontWeight: "800",
+    fontWeight: "700",
+    fontSize: "13px",
     cursor: "pointer",
-    fontSize: "14px",
-    boxShadow: "0 4px 14px rgba(37, 99, 235, 0.3)",
+    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
   },
   btnClose: {
-    padding: "12px 20px",
-    backgroundColor: "#ffffff",
-    color: "#64748b",
-    border: "1px solid #cbd5e1",
-    borderRadius: "10px",
+    padding: "12px 24px",
+    backgroundColor: "#F8FAFC",
+    color: "#64748B",
+    borderRadius: "9999px",
+    border: "1px solid #E2E8F0",
+    fontWeight: "600",
+    fontSize: "13px",
     cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "700",
   },
 };
 

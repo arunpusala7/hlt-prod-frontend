@@ -7,7 +7,6 @@ function AdminDashboard() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const profileMenuRef = useRef(null);
 
-  // Click-outside listener to close profile menu when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
@@ -27,11 +26,14 @@ function AdminDashboard() {
 
   return (
     <div style={styles.pageContainer}>
-      {/* Navbar Header */}
+      {/* Top Navbar */}
       <nav style={styles.navbar}>
         <div style={styles.logo} onClick={() => navigate("/")}>
-          <span style={{ color: '#2563eb', fontWeight: "900" }}>Health</span>
-          <span style={{ color: '#0f172a', fontWeight: "900" }}>Connect</span>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          <span style={{ color: '#0F172A', fontWeight: "800" }}>Health</span>
+          <span style={{ color: '#3B82F6', fontWeight: "800" }}>Connect</span>
           <span style={styles.badge}>Admin</span>
         </div>
 
@@ -56,11 +58,11 @@ function AdminDashboard() {
               >
                 <div style={styles.dropdownHeader}>
                   <p style={styles.dropdownUser}>Administrator</p>
-                  <p style={styles.dropdownEmail}>admin@gmail.com</p>
-                  <span style={styles.onlineBadge}>● System Master Admin</span>
+                  <p style={styles.dropdownEmail}>admin@healthconnect.com</p>
+                  <span style={styles.onlineBadge}>● Master Console</span>
                 </div>
 
-                <hr style={{ border: 0, borderTop: "1px solid #f1f5f9", margin: "6px 0" }} />
+                <hr style={{ border: 0, borderTop: "1px solid #F1F5F9", margin: "6px 0" }} />
 
                 <div
                   style={styles.dropdownItem}
@@ -92,7 +94,7 @@ function AdminDashboard() {
                   💳 Payment Transactions
                 </div>
 
-                <hr style={{ border: 0, borderTop: "1px solid #f1f5f9", margin: "6px 0" }} />
+                <hr style={{ border: 0, borderTop: "1px solid #F1F5F9", margin: "6px 0" }} />
 
                 <button style={styles.dropdownLogoutBtn} onClick={handleLogout}>
                   🚪 Sign Out
@@ -105,42 +107,42 @@ function AdminDashboard() {
 
       {/* Main Content Area */}
       <div style={styles.contentWrapper}>
-        {/* Banner Card */}
-        <div style={styles.welcomeBanner}>
+        {/* Welcome Banner Card */}
+        <div className="glass-card" style={styles.welcomeBanner}>
           <div>
-            <span style={styles.bannerTag}>Management Portal</span>
-            <h1 style={styles.bannerTitle}>Hospital Administration Console</h1>
+            <span style={styles.bannerTag}>Administration Console</span>
+            <h1 style={styles.bannerTitle}>Hospital Overview & Management</h1>
             <p style={styles.bannerSub}>
-              Manage specialist staff accounts, monitor patient consultation queues, and review live payment revenue logs.
+              Manage specialist doctor profiles, monitor live patient consultation queues, and inspect Razorpay revenue audit logs.
             </p>
           </div>
         </div>
 
         {/* Quick System Metrics Row */}
         <div style={styles.metricsRow}>
-          <div style={styles.metricItem}>
+          <div className="glass-card" style={styles.metricItem}>
             <span style={styles.metricLabel}>System Status</span>
-            <span style={{ ...styles.metricVal, color: "#16a34a" }}>● Operational</span>
+            <span style={{ ...styles.metricVal, color: "#16A34A" }}>● 100% Operational</span>
           </div>
 
-          <div style={styles.metricItem}>
+          <div className="glass-card" style={styles.metricItem}>
             <span style={styles.metricLabel}>Payment Gateway</span>
-            <span style={{ ...styles.metricVal, color: "#2563eb" }}>Razorpay HMAC SHA-256</span>
+            <span style={{ ...styles.metricVal, color: "#3B82F6" }}>Razorpay HMAC SHA-256</span>
           </div>
 
-          <div style={styles.metricItem}>
-            <span style={styles.metricLabel}>Security Level</span>
-            <span style={{ ...styles.metricVal, color: "#0f172a" }}>Encrypted & Verified</span>
+          <div className="glass-card" style={styles.metricItem}>
+            <span style={styles.metricLabel}>Security Protocol</span>
+            <span style={{ ...styles.metricVal, color: "#0F172A" }}>JWT Encrypted & Verified</span>
           </div>
         </div>
 
         {/* Action Grid */}
         <div style={styles.gridContainer}>
-          
           {/* CARD 1: ADD DOCTOR */}
           <motion.div
+            whileHover={{ y: -4 }}
+            className="glass-card"
             style={styles.card}
-            whileHover={{ y: -4, boxShadow: "0 10px 25px rgba(0,0,0,0.06)" }}
             onClick={() => navigate("/admin/add-doctor")}
           >
             <div style={styles.cardHeaderRow}>
@@ -154,8 +156,9 @@ function AdminDashboard() {
 
           {/* CARD 2: MANAGE APPOINTMENTS */}
           <motion.div
+            whileHover={{ y: -4 }}
+            className="glass-card"
             style={styles.card}
-            whileHover={{ y: -4, boxShadow: "0 10px 25px rgba(0,0,0,0.06)" }}
             onClick={() => navigate("/admin/appointments")}
           >
             <div style={styles.cardHeaderRow}>
@@ -169,8 +172,9 @@ function AdminDashboard() {
 
           {/* CARD 3: DOCTOR LIST */}
           <motion.div
+            whileHover={{ y: -4 }}
+            className="glass-card"
             style={styles.card}
-            whileHover={{ y: -4, boxShadow: "0 10px 25px rgba(0,0,0,0.06)" }}
             onClick={() => navigate("/admin/doctors")}
           >
             <div style={styles.cardHeaderRow}>
@@ -184,8 +188,9 @@ function AdminDashboard() {
 
           {/* CARD 4: PAYMENTS TRANSACTIONS */}
           <motion.div
+            whileHover={{ y: -4 }}
+            className="glass-card"
             style={styles.card}
-            whileHover={{ y: -4, boxShadow: "0 10px 25px rgba(0,0,0,0.06)" }}
             onClick={() => navigate("/admin/payments")}
           >
             <div style={styles.cardHeaderRow}>
@@ -199,8 +204,9 @@ function AdminDashboard() {
 
           {/* CARD 5: REGISTERED PATIENTS */}
           <motion.div
+            whileHover={{ y: -4 }}
+            className="glass-card"
             style={styles.card}
-            whileHover={{ y: -4, boxShadow: "0 10px 25px rgba(0,0,0,0.06)" }}
             onClick={() => navigate("/admin/users")}
           >
             <div style={styles.cardHeaderRow}>
@@ -208,10 +214,9 @@ function AdminDashboard() {
               <span style={styles.cardBadge}>User Accounts</span>
             </div>
             <h3 style={styles.cardTitle}>Registered Patients</h3>
-            <p style={styles.cardDesc}>Browse registered patient accounts, audit user emails, or perform account deletions.</p>
+            <p style={styles.cardDesc}>Browse registered patient accounts, audit user emails, or perform account management.</p>
             <span style={styles.linkArrow}>Manage Patient Accounts &rarr;</span>
           </motion.div>
-
         </div>
       </div>
 
@@ -228,139 +233,125 @@ const styles = {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#f8fafc",
-    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+    backgroundColor: "#F8FAFC",
   },
   navbar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "14px 28px",
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #e2e8f0",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
-    flexWrap: "nowrap",
+    padding: "0 24px",
+    height: "64px",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backdropFilter: "blur(16px)",
+    borderBottom: "1px solid rgba(226, 232, 240, 0.8)",
   },
   logo: {
-    fontSize: "19px",
+    fontSize: "18px",
+    fontWeight: "800",
+    color: "#0F172A",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     gap: "8px",
   },
   badge: {
-    fontSize: "11px",
-    backgroundColor: "#eff6ff",
-    color: "#2563eb",
+    fontSize: "10px",
+    backgroundColor: "#EFF6FF",
+    color: "#3B82F6",
     padding: "3px 8px",
-    borderRadius: "6px",
+    borderRadius: "9999px",
     fontWeight: "700",
     textTransform: "uppercase",
   },
-
-  // Profile Avatar & Dropdown
   avatarOnlyBtn: {
     background: "none",
     border: "none",
     padding: 0,
     cursor: "pointer",
-    borderRadius: "50%",
   },
   avatarCircle: {
-    width: "34px",
-    height: "34px",
+    width: "36px",
+    height: "36px",
     borderRadius: "50%",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
+    backgroundColor: "#3B82F6",
+    color: "#FFFFFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "14px",
     fontWeight: "800",
-    boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
-  },
-  profileName: {
-    fontSize: "13px",
-    fontWeight: "700",
-    color: "#0f172a",
+    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.35)",
   },
   profileDropdown: {
     position: "absolute",
     right: 0,
     top: "120%",
     width: "220px",
-    backgroundColor: "#ffffff",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "18px",
+    border: "1px solid #E2E8F0",
+    boxShadow: "0 14px 35px rgba(15, 23, 42, 0.12)",
     padding: "10px",
     zIndex: 1000,
   },
   dropdownHeader: {
-    padding: "4px 8px 8px 8px",
+    padding: "6px 8px 8px",
   },
   dropdownUser: {
     margin: "0 0 2px 0",
-    fontSize: "14px",
+    fontSize: "13px",
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#0F172A",
   },
   dropdownEmail: {
     margin: "0 0 4px 0",
     fontSize: "11px",
-    color: "#64748b",
+    color: "#64748B",
   },
   onlineBadge: {
     fontSize: "10px",
     fontWeight: "700",
-    color: "#16a34a",
+    color: "#16A34A",
   },
   dropdownItem: {
     padding: "8px 10px",
     fontSize: "13px",
     color: "#334155",
-    fontWeight: "500",
-    borderRadius: "6px",
+    fontWeight: "600",
+    borderRadius: "8px",
     cursor: "pointer",
-    transition: "background-color 0.2s",
+    transition: "background-color 0.15s",
   },
   dropdownLogoutBtn: {
     width: "100%",
     padding: "8px",
-    backgroundColor: "#fef2f2",
-    color: "#dc2626",
-    border: "1px solid #fca5a5",
-    borderRadius: "6px",
+    backgroundColor: "#FEE2E2",
+    color: "#DC2626",
+    borderRadius: "9999px",
     fontSize: "12px",
     fontWeight: "700",
     cursor: "pointer",
     marginTop: "4px",
   },
-
   contentWrapper: {
     flex: 1,
-    padding: "24px 20px",
-    maxWidth: "1100px",
+    padding: "24px",
+    maxWidth: "1120px",
     margin: "0 auto",
     width: "100%",
-    boxSizing: "border-box",
   },
   welcomeBanner: {
-    backgroundColor: "#ffffff",
-    borderRadius: "14px",
     padding: "24px 28px",
-    border: "1px solid #e2e8f0",
-    marginBottom: "16px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+    marginBottom: "20px",
   },
   bannerTag: {
     display: "inline-block",
-    backgroundColor: "#eff6ff",
-    color: "#2563eb",
+    backgroundColor: "#EFF6FF",
+    color: "#3B82F6",
     fontSize: "11px",
     fontWeight: "700",
-    padding: "4px 10px",
-    borderRadius: "12px",
+    padding: "3px 10px",
+    borderRadius: "9999px",
     textTransform: "uppercase",
     marginBottom: "8px",
   },
@@ -368,52 +359,43 @@ const styles = {
     margin: "0 0 6px 0",
     fontSize: "22px",
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#0F172A",
   },
   bannerSub: {
     margin: 0,
     fontSize: "13px",
-    color: "#64748b",
+    color: "#64748B",
     lineHeight: "1.5",
   },
-
   metricsRow: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "12px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "14px",
     marginBottom: "20px",
   },
   metricItem: {
-    backgroundColor: "#ffffff",
-    borderRadius: "12px",
-    padding: "14px 18px",
-    border: "1px solid #e2e8f0",
+    padding: "16px 20px",
     display: "flex",
     flexDirection: "column",
-    gap: "2px",
+    gap: "4px",
   },
   metricLabel: {
     fontSize: "11px",
     fontWeight: "700",
-    color: "#64748b",
+    color: "#94A3B8",
     textTransform: "uppercase",
   },
   metricVal: {
-    fontSize: "13px",
+    fontSize: "14px",
     fontWeight: "700",
   },
-
   gridContainer: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
     gap: "16px",
   },
   card: {
-    backgroundColor: "#ffffff",
     padding: "22px",
-    borderRadius: "14px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
-    border: "1px solid #e2e8f0",
     cursor: "pointer",
     display: "flex",
     flexDirection: "column",
@@ -427,46 +409,43 @@ const styles = {
   },
   iconContainer: {
     fontSize: "20px",
-    backgroundColor: "#eff6ff",
-    color: "#2563eb",
+    backgroundColor: "#EFF6FF",
     width: "42px",
     height: "42px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "10px",
-    border: "1px solid #bfdbfe",
+    borderRadius: "12px",
   },
   cardBadge: {
     fontSize: "11px",
     fontWeight: "600",
-    color: "#475569",
-    backgroundColor: "#f1f5f9",
+    color: "#64748B",
+    backgroundColor: "#F1F5F9",
     padding: "3px 8px",
-    borderRadius: "6px",
+    borderRadius: "9999px",
   },
   cardTitle: {
     margin: "0 0 6px 0",
     fontSize: "16px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#0F172A",
   },
   cardDesc: {
     margin: "0 0 16px 0",
     fontSize: "12px",
-    color: "#64748b",
+    color: "#64748B",
     lineHeight: "1.5",
   },
   linkArrow: {
-    color: "#2563eb",
+    color: "#3B82F6",
     fontSize: "13px",
     fontWeight: "700",
   },
-
   footer: {
-    backgroundColor: "#ffffff",
-    borderTop: "1px solid #e2e8f0",
-    color: "#64748b",
+    backgroundColor: "#FFFFFF",
+    borderTop: "1px solid #E2E8F0",
+    color: "#64748B",
     textAlign: "center",
     padding: "16px",
     fontSize: "12px",

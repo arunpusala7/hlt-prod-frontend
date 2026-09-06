@@ -1,31 +1,26 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/api";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import { getDoctorPortrait, getSpecialtyIcon } from "../utils/doctorAvatars";
+import { formatDoctorName } from "../utils/formatDoctorName";
 
 function LandingPage() {
   const navigate = useNavigate();
   const [doctors, setDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSpecialty, setSelectedSpecialty] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedSpecialty, setSelectedSpecialty] = useState("All");
 
   const specialties = [
+    "All",
     "General Medicine",
     "Cardiology",
     "Pediatrics",
     "Neurology",
-    "Orthopedics"
+    "Orthopedics",
+    "Dermatology"
   ];
-
-  const scrollToSection = (id) => {
-    setMobileMenuOpen(false);
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
-    }
-  };
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -35,10 +30,10 @@ function LandingPage() {
         setDoctors(res.data || []);
       } catch (err) {
         setDoctors([
-          { id: 1, name: "Dr. Sarah Jenkins", specialization: "Cardiology" },
-          { id: 2, name: "Dr. Rajesh Sharma", specialization: "General Medicine" },
-          { id: 3, name: "Dr. Elena Rostova", specialization: "Pediatrics" },
-          { id: 4, name: "Dr. Marcus Vance", specialization: "Neurology" }
+          { id: 1, name: "Dr. Emily Roberts", specialization: "Pediatrics", consultationFee: 500 },
+          { id: 2, name: "Dr. David Miller", specialization: "Dermatology", consultationFee: 500 },
+          { id: 3, name: "Dr. Anita Shah", specialization: "General Medicine", consultationFee: 500 },
+          { id: 4, name: "Dr. Rajesh Sharma", specialization: "Cardiology", consultationFee: 500 }
         ]);
       } finally {
         setLoadingDoctors(false);
@@ -51,621 +46,477 @@ function LandingPage() {
   const filteredDoctors = doctors.filter((doc) => {
     const matchesSearch = doc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.specialization?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSpecialty = !selectedSpecialty || 
+    const matchesSpecialty = selectedSpecialty === "All" || 
       doc.specialization?.toLowerCase().includes(selectedSpecialty.toLowerCase());
     return matchesSearch && matchesSpecialty;
   });
 
   return (
-    <div style={styles.pageWrapper}>
-      {/* ================= HEADER ================= */}
-      <nav style={styles.navbar}>
-        <div className="landing-nav-container" style={styles.navContainer}>
+    <div style={styles.pageCanvas}>
+      {/* Top Floating Glass Header */}
+      <header style={styles.header}>
+        <div style={styles.headerInner}>
           <div style={styles.logoGroup} onClick={() => navigate("/")}>
-            <div style={styles.logoText}>
-              Health<span style={{ color: "#2563eb" }}>Connect</span>
-            </div>
+            {/* ECG Heartbeat Icon */}
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+            <span style={styles.logoText}>
+              Health<span style={{ color: "#3B82F6" }}>Connect</span>
+            </span>
           </div>
 
-          <div className="landing-desktop-links" style={styles.desktopNavLinks}>
-            <span style={styles.navLink} onClick={() => scrollToSection("about")}>About</span>
-            <span style={styles.navLink} onClick={() => scrollToSection("doctors")}>Doctors</span>
-            <span style={styles.navLink} onClick={() => scrollToSection("how-it-works")}>How It Works</span>
-            <span style={styles.navLink} onClick={() => navigate("/login")}>Sign In</span>
-          </div>
-
-          <div style={styles.actionGroup}>
+          <div style={styles.headerRight}>
             <button 
-              className="landing-hamburger-btn"
-              style={styles.hamburgerBtn}
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle Navigation"
+              onClick={() => navigate("/login")} 
+              style={styles.signInBtn}
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                {mobileMenuOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M4 6h16M4 12h16M4 18h16" />}
-              </svg>
+              Sign In
+            </button>
+            <button 
+              onClick={() => navigate("/register")} 
+              style={styles.registerPillBtn}
+            >
+              Get Started
             </button>
           </div>
         </div>
+      </header>
 
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15 }}
-              style={styles.mobileMenuDropdown}
-            >
-              <div style={styles.mobileMenuItem} onClick={() => scrollToSection("about")}>About Us</div>
-              <div style={styles.mobileMenuItem} onClick={() => scrollToSection("doctors")}>Find Specialists</div>
-              <div style={styles.mobileMenuItem} onClick={() => scrollToSection("how-it-works")}>How It Works</div>
-              <div style={styles.mobileMenuItem} onClick={() => navigate("/login")}>Sign In</div>
-              <div style={styles.mobileMenuItem} onClick={() => navigate("/register")}>Create Account</div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
-
-      {/* ================= HERO (FULL-WIDTH HORIZONTAL IMAGE BANNER) ================= */}
+      {/* Main Hero Section (Mirroring Screen 1 from UI Reference) */}
       <section style={styles.heroSection}>
         <div style={styles.heroContainer}>
-          <div style={styles.heroTextCol}>
-            <div style={styles.pillBadge}>Smart Healthcare Access</div>
-            <h1 style={styles.heroHeading}>
-              Book Doctor Appointments <br />
-              <span style={{ color: "#2563eb" }}>On Your Phone</span>
-            </h1>
+          {/* Top Heartbeat Accent */}
+          <div style={styles.heartbeatRow}>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85 }}>
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
           </div>
 
-          {/* Full Horizontal Banner Container */}
-          <div style={styles.fullBannerWrapper}>
-            <img
-              src="/minimal_doctor.jpg"
-              alt="Medical Professional Banner"
-              style={styles.fullWidthBannerImg}
-              onError={(e) => {
-                e.target.src = "https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=1200&auto=format&fit=crop";
-              }}
+          {/* Doctor Cutout Portrait */}
+          <div style={styles.portraitWrapper}>
+            <img 
+              src="/portraits/hero_doctor.jpg" 
+              alt="Medical Specialist" 
+              style={styles.portraitImg}
             />
           </div>
 
-          <div style={{ ...styles.heroTextCol, marginTop: "16px" }}>
-            <p style={styles.heroSubheading}>
-              Connect directly with verified specialists. Book slots online, verify via email OTP, and receive instant digital QR tickets.
+          {/* Elevated Surface Card Overlay (Bottom Sheet / Floating Card) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            style={styles.heroCard}
+          >
+            <span style={styles.heroTagline}>Your Health, Our Top Priority</span>
+            <h1 style={styles.heroTitle}>From check-ups to care, all in one app.</h1>
+            <p style={styles.heroDescription}>
+              Connect with top certified medical specialists, book slots seamlessly, and receive verified digital consultations.
             </p>
 
-            <div style={styles.heroBtnGroup}>
-              <button style={styles.heroPrimaryBtn} onClick={() => navigate("/register")}>
-                Book Appointment
-              </button>
-              <button style={styles.heroSecondaryBtn} onClick={() => scrollToSection("about")}>
-                Learn More
+            <div style={styles.ctaWrapper}>
+              <button 
+                onClick={() => navigate("/login")} 
+                style={styles.heroPrimaryBtn}
+              >
+                <span>Get started</span>
+                <span style={styles.arrowCircle}>↗</span>
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* ================= BASIC INFORMATION ================= */}
-      <section id="about" style={styles.sectionContainer}>
-        <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>Why Choose HealthConnect</h2>
-          <p style={styles.sectionSub}>Simple, secure, and fast medical consultations.</p>
-        </div>
-
-        <div style={styles.infoGrid}>
-          <div style={styles.infoCard}>
-            <div style={styles.infoDot}></div>
-            <h3 style={styles.infoTitle}>Verified Specialists</h3>
-            <p style={styles.infoText}>
-              Consult certified hospital doctors with real-time slot availability.
-            </p>
+      {/* Specialist Directory & Categories */}
+      <section style={styles.directorySection}>
+        <div style={styles.directoryContainer}>
+          <div style={styles.sectionHeaderRow}>
+            <div>
+              <h2 style={styles.sectionTitle}>Meet Our Specialists</h2>
+              <p style={styles.sectionSub}>Book an appointment with leading hospital doctors</p>
+            </div>
+            
+            {/* Search Pill */}
+            <div style={styles.searchBox}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input 
+                type="text" 
+                placeholder="Search by doctor or specialty..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={styles.searchInput}
+              />
+            </div>
           </div>
 
-          <div style={styles.infoCard}>
-            <div style={styles.infoDot}></div>
-            <h3 style={styles.infoTitle}>Email OTP Protection</h3>
-            <p style={styles.infoText}>
-              6-digit OTP verification ensures valid bookings and email confirmation.
-            </p>
-          </div>
-
-          <div style={styles.infoCard}>
-            <div style={styles.infoDot}></div>
-            <h3 style={styles.infoTitle}>Digital QR Ticket</h3>
-            <p style={styles.infoText}>
-              Get an instant digital ticket on your phone for priority hospital entry.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= DOCTOR DIRECTORY ================= */}
-      <section id="doctors" style={{ ...styles.sectionContainer, backgroundColor: "#ffffff" }}>
-        <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>Available Doctors</h2>
-          <p style={styles.sectionSub}>Select a specialist to reserve your appointment.</p>
-        </div>
-
-        <div style={styles.searchWrapper}>
-          <input
-            type="text"
-            placeholder="Search doctor or specialty..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
-        </div>
-
-        <div style={styles.chipRow}>
-          {specialties.map((spec) => (
-            <button
-              key={spec}
-              onClick={() => setSelectedSpecialty((prev) => (prev === spec ? "" : spec))}
-              style={selectedSpecialty === spec ? styles.chipActive : styles.chip}
-            >
-              {spec}
-            </button>
-          ))}
-        </div>
-
-        {loadingDoctors ? (
-          <p style={{ textAlign: "center", color: "#64748b", fontSize: "13px" }}>Loading doctors...</p>
-        ) : (
-          <div style={styles.doctorGrid}>
-            {filteredDoctors.map((doc) => (
-              <div key={doc.id} style={styles.doctorCard}>
-                <div style={styles.docAvatarRow}>
-                  <div style={styles.docAvatar}>
-                    {doc.name ? doc.name.charAt(0) : "D"}
-                  </div>
-                  <div>
-                    <h3 style={styles.docName}>{doc.name}</h3>
-                    <p style={styles.docSpecialty}>{doc.specialization || "General Medicine"}</p>
-                  </div>
-                </div>
-
-                <button
-                  style={styles.docBookBtn}
-                  onClick={() => navigate("/register")}
-                >
-                  Book Slot
-                </button>
-              </div>
+          {/* Specialty Filter Horizontal Scroll Strip */}
+          <div style={styles.filterStrip}>
+            {specialties.map((spec) => (
+              <button
+                key={spec}
+                onClick={() => setSelectedSpecialty(spec)}
+                className={`filter-pill ${selectedSpecialty === spec ? 'active' : 'inactive'}`}
+              >
+                {getSpecialtyIcon(spec)} {spec}
+              </button>
             ))}
           </div>
-        )}
+
+          {/* Doctor Cards Grid */}
+          {loadingDoctors ? (
+            <div style={{ textAlign: "center", padding: "40px", color: "#64748B" }}>
+              Loading verified specialists...
+            </div>
+          ) : filteredDoctors.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px", color: "#64748B" }}>
+              No doctors found matching your criteria.
+            </div>
+          ) : (
+            <div style={styles.doctorGrid}>
+              {filteredDoctors.map((doc) => (
+                <motion.div
+                  key={doc.id}
+                  whileHover={{ y: -4 }}
+                  className="glass-card"
+                  style={styles.doctorCard}
+                >
+                  <div style={styles.docAvatarContainer}>
+                    <img 
+                      src={getDoctorPortrait(doc.id, doc.name)} 
+                      alt={doc.name} 
+                      style={styles.docAvatarImg} 
+                    />
+                  </div>
+
+                  <div style={styles.docInfo}>
+                    <h3 style={styles.docName}>{formatDoctorName(doc.name)}</h3>
+                    <span style={styles.docSpecBadge}>
+                      {getSpecialtyIcon(doc.specialization)} {doc.specialization || "General Specialist"}
+                    </span>
+                    <p style={styles.docFee}>₹{doc.consultationFee || 500} <span style={{ fontSize: "12px", color: "#94A3B8", fontWeight: "400" }}>/ Session</span></p>
+
+                    <button
+                      onClick={() => navigate(`/doctor-profile/${doc.id}`)}
+                      style={styles.bookDocBtn}
+                    >
+                      View Profile & Slots
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
-      {/* ================= HOW IT WORKS (3 STEPS) ================= */}
-      <section id="how-it-works" style={styles.sectionContainer}>
-        <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>How It Works</h2>
-        </div>
-
-        <div style={styles.stepsGrid}>
-          <div style={styles.stepCard}>
-            <span style={styles.stepNum}>1</span>
-            <h3 style={styles.stepTitle}>Select Doctor</h3>
-            <p style={styles.stepDesc}>Pick your specialist and select an available slot.</p>
-          </div>
-
-          <div style={styles.stepCard}>
-            <span style={styles.stepNum}>2</span>
-            <h3 style={styles.stepTitle}>Verify Email OTP</h3>
-            <p style={styles.stepDesc}>Enter the 6-digit security code sent to your email.</p>
-          </div>
-
-          <div style={styles.stepCard}>
-            <span style={styles.stepNum}>3</span>
-            <h3 style={styles.stepTitle}>Get QR Ticket</h3>
-            <p style={styles.stepDesc}>Show your smartphone QR ticket for priority check-in.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= FOOTER ================= */}
+      {/* Minimal Footer */}
       <footer style={styles.footer}>
-        <div style={styles.footerContainer}>
-          <span>HealthConnect © 2026</span>
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <span style={styles.footerLink} onClick={() => navigate("/login")}>Login</span>
-            <span style={styles.footerLink} onClick={() => navigate("/register")}>Register</span>
-          </div>
-        </div>
+        <p>&copy; 2026 HealthConnect. Production Grade Minimalist Healthcare Experience.</p>
       </footer>
     </div>
   );
 }
 
-export default LandingPage;
-
 const styles = {
-  pageWrapper: {
+  pageCanvas: {
     minHeight: "100vh",
+    backgroundColor: "#F8FAFC",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#f8fafc",
-    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-    color: "#0f172a",
   },
-  navbar: {
+  header: {
     position: "sticky",
     top: 0,
-    zIndex: 1000,
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #f1f5f9",
-    width: "100%",
+    zIndex: 100,
+    backgroundColor: "rgba(248, 250, 252, 0.85)",
+    backdropFilter: "blur(16px)",
+    borderBottom: "1px solid rgba(226, 232, 240, 0.7)",
+    padding: "14px 24px",
   },
-  navContainer: {
-    maxWidth: "1000px",
-    width: "100%",
+  headerInner: {
+    maxWidth: "1120px",
     margin: "0 auto",
-    padding: "12px 16px",
     display: "flex",
-    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    boxSizing: "border-box",
   },
   logoGroup: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "10px",
     cursor: "pointer",
-  },
-  logoBadge: {
-    width: "26px",
-    height: "26px",
-    borderRadius: "6px",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "800",
-    fontSize: "11px",
   },
   logoText: {
-    fontSize: "16px",
-    fontWeight: "700",
-    color: "#0f172a",
+    fontSize: "20px",
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: "-0.02em",
   },
-  desktopNavLinks: {
-    display: "flex",
-    gap: "20px",
-    alignItems: "center",
-  },
-  navLink: {
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#475569",
-    cursor: "pointer",
-  },
-  actionGroup: {
+  headerRight: {
     display: "flex",
     alignItems: "center",
+    gap: "12px",
   },
-  hamburgerBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#0f172a",
-    cursor: "pointer",
-    padding: "4px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mobileMenuDropdown: {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #e2e8f0",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-    padding: "12px 16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    zIndex: 1001,
-  },
-  mobileMenuItem: {
-    padding: "10px 14px",
+  signInBtn: {
+    backgroundColor: "transparent",
+    color: "#64748B",
     fontSize: "14px",
     fontWeight: "600",
-    color: "#0f172a",
-    borderRadius: "8px",
+    padding: "8px 16px",
+    borderRadius: "9999px",
     cursor: "pointer",
-    backgroundColor: "#f8fafc",
+    transition: "color 0.2s",
+  },
+  registerPillBtn: {
+    backgroundColor: "#3B82F6",
+    color: "#FFFFFF",
+    fontSize: "14px",
+    fontWeight: "600",
+    padding: "9px 20px",
+    borderRadius: "9999px",
+    boxShadow: "0 4px 14px -2px rgba(59, 130, 246, 0.4)",
+    cursor: "pointer",
+    transition: "all 0.2s",
   },
 
-  // HERO (FULL WIDTH HORIZONTAL BANNER)
+  // Hero Section
   heroSection: {
-    backgroundColor: "#f8fafc",
-    padding: "24px 16px 32px 16px",
-    borderBottom: "1px solid #f1f5f9",
+    padding: "20px 16px 40px",
+    display: "flex",
+    justifyContent: "center",
   },
   heroContainer: {
-    maxWidth: "1000px",
-    margin: "0 auto",
+    width: "100%",
+    maxWidth: "460px",
+    position: "relative",
     display: "flex",
     flexDirection: "column",
-    gap: "20px",
+    alignItems: "center",
   },
-  heroTextCol: {
+  heartbeatRow: {
+    width: "100%",
+    display: "flex",
+    justifyContent: "flex-start",
+    padding: "10px 16px",
+  },
+  portraitWrapper: {
+    width: "100%",
+    maxWidth: "340px",
+    height: "360px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-end",
+    overflow: "hidden",
+    marginTop: "-20px",
+    zIndex: 1,
+  },
+  portraitImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    objectPosition: "bottom",
+  },
+  heroCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "32px",
+    padding: "32px 24px",
+    boxShadow: "0 20px 40px -10px rgba(15, 23, 42, 0.08)",
+    border: "1px solid rgba(226, 232, 240, 0.8)",
+    marginTop: "-30px",
+    zIndex: 2,
     textAlign: "center",
-    maxWidth: "650px",
-    margin: "0 auto",
   },
-  pillBadge: {
+  heroTagline: {
     display: "inline-block",
-    backgroundColor: "#eff6ff",
-    color: "#2563eb",
-    padding: "4px 12px",
-    borderRadius: "14px",
-    fontSize: "12px",
+    fontSize: "13px",
     fontWeight: "600",
-    marginBottom: "10px",
+    color: "#64748B",
+    marginBottom: "8px",
+    letterSpacing: "0.02em",
   },
-  heroHeading: {
+  heroTitle: {
     fontSize: "26px",
     fontWeight: "800",
+    color: "#0F172A",
     lineHeight: "1.25",
-    color: "#0f172a",
-    marginBottom: "10px",
-    letterSpacing: "-0.3px",
+    marginBottom: "12px",
+    letterSpacing: "-0.03em",
   },
-  heroSubheading: {
-    fontSize: "13px",
-    color: "#64748b",
+  heroDescription: {
+    fontSize: "14px",
+    color: "#64748B",
+    marginBottom: "24px",
     lineHeight: "1.5",
-    marginBottom: "18px",
   },
-  heroBtnGroup: {
+  ctaWrapper: {
     display: "flex",
-    gap: "10px",
     justifyContent: "center",
-    flexWrap: "wrap",
   },
   heroPrimaryBtn: {
-    padding: "12px 24px",
-    background: "#2563eb",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "13px",
-    fontWeight: "600",
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#3B82F6",
+    color: "#FFFFFF",
+    padding: "14px 20px 14px 28px",
+    borderRadius: "9999px",
+    fontSize: "16px",
+    fontWeight: "700",
+    boxShadow: "0 8px 25px -4px rgba(59, 130, 246, 0.45)",
     cursor: "pointer",
+    transition: "all 0.2s",
   },
-  heroSecondaryBtn: {
-    padding: "12px 20px",
-    background: "#ffffff",
-    color: "#334155",
-    border: "1px solid #cbd5e1",
-    borderRadius: "8px",
-    fontSize: "13px",
-    fontWeight: "600",
-    cursor: "pointer",
+  arrowCircle: {
+    width: "34px",
+    height: "34px",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "16px",
+    fontWeight: "800",
   },
 
-  // FULL WIDTH BANNER WRAPPER
-  fullBannerWrapper: {
+  // Directory Section
+  directorySection: {
+    padding: "20px 20px 60px",
+    maxWidth: "1120px",
     width: "100%",
-    marginTop: "8px",
-  },
-  fullWidthBannerImg: {
-    width: "100%",
-    maxHeight: "320px",
-    objectFit: "cover",
-    objectPosition: "center 20%",
-    borderRadius: "14px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
-  },
-
-  // INFO SECTION
-  sectionContainer: {
-    maxWidth: "1000px",
     margin: "0 auto",
-    padding: "35px 16px",
+  },
+  directoryContainer: {
     width: "100%",
   },
-  sectionHeader: {
-    textAlign: "center",
+  sectionHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "16px",
     marginBottom: "20px",
   },
   sectionTitle: {
-    fontSize: "18px",
-    fontWeight: "700",
-    color: "#0f172a",
-    margin: "0 0 4px 0",
+    fontSize: "22px",
+    fontWeight: "800",
+    color: "#0F172A",
+    margin: 0,
   },
   sectionSub: {
-    fontSize: "13px",
-    color: "#64748b",
-    margin: 0,
-  },
-  infoGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: "14px",
-  },
-  infoCard: {
-    backgroundColor: "#ffffff",
-    padding: "16px",
-    borderRadius: "10px",
-    border: "1px solid #e2e8f0",
-  },
-  infoDot: {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    backgroundColor: "#2563eb",
-    marginBottom: "10px",
-  },
-  infoTitle: {
     fontSize: "14px",
-    fontWeight: "700",
-    color: "#0f172a",
-    margin: "0 0 4px 0",
+    color: "#64748B",
+    margin: "4px 0 0 0",
   },
-  infoText: {
-    fontSize: "12px",
-    color: "#64748b",
-    lineHeight: "1.4",
-    margin: 0,
-  },
-
-  // DOCTORS
-  searchWrapper: {
-    maxWidth: "400px",
-    margin: "0 auto 12px auto",
+  searchBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    backgroundColor: "#FFFFFF",
+    padding: "10px 18px",
+    borderRadius: "9999px",
+    border: "1px solid #E2E8F0",
+    boxShadow: "0 4px 12px -2px rgba(15, 23, 42, 0.03)",
+    width: "100%",
+    maxWidth: "340px",
   },
   searchInput: {
-    width: "100%",
-    padding: "10px 16px",
-    borderRadius: "20px",
-    border: "1px solid #cbd5e1",
-    fontSize: "13px",
+    border: "none",
     outline: "none",
+    fontSize: "13px",
+    width: "100%",
+    backgroundColor: "transparent",
+    color: "#0F172A",
   },
-  chipRow: {
+  filterStrip: {
     display: "flex",
-    gap: "6px",
+    gap: "10px",
     overflowX: "auto",
-    paddingBottom: "6px",
-    marginBottom: "20px",
+    paddingBottom: "12px",
+    marginBottom: "24px",
     scrollbarWidth: "none",
   },
-  chip: {
-    padding: "5px 12px",
-    borderRadius: "14px",
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#475569",
-    fontSize: "12px",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  },
-  chipActive: {
-    padding: "5px 12px",
-    borderRadius: "14px",
-    border: "none",
-    background: "#2563eb",
-    color: "#ffffff",
-    fontSize: "12px",
-    fontWeight: "600",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  },
+
+  // Doctor Grid
   doctorGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-    gap: "12px",
+    gap: "20px",
   },
   doctorCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: "10px",
-    padding: "14px",
-    border: "1px solid #e2e8f0",
+    padding: "20px",
     display: "flex",
-    justifyContent: "space-between",
+    flexDirection: "column",
     alignItems: "center",
+    textAlign: "center",
   },
-  docAvatarRow: {
-    display: "flex",
-    gap: "10px",
-    alignItems: "center",
-  },
-  docAvatar: {
-    width: "36px",
-    height: "36px",
+  docAvatarContainer: {
+    width: "90px",
+    height: "90px",
     borderRadius: "50%",
-    backgroundColor: "#eff6ff",
-    color: "#2563eb",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "14px",
-    fontWeight: "700",
+    overflow: "hidden",
+    backgroundColor: "#EFF6FF",
+    border: "3px solid #FFFFFF",
+    boxShadow: "0 6px 16px -2px rgba(15, 23, 42, 0.08)",
+    marginBottom: "14px",
+  },
+  docAvatarImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  docInfo: {
+    width: "100%",
   },
   docName: {
-    margin: "0 0 2px 0",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  docSpecialty: {
-    margin: 0,
-    fontSize: "11px",
-    color: "#64748b",
-  },
-  docBookBtn: {
-    padding: "6px 12px",
-    background: "#2563eb",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-
-  // STEPS
-  stepsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "12px",
-  },
-  stepCard: {
-    padding: "16px",
-    borderRadius: "10px",
-    backgroundColor: "#ffffff",
-    border: "1px solid #e2e8f0",
-  },
-  stepNum: {
-    fontSize: "12px",
-    fontWeight: "800",
-    color: "#2563eb",
-    display: "block",
-    marginBottom: "4px",
-  },
-  stepTitle: {
-    fontSize: "14px",
+    fontSize: "16px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#0F172A",
     margin: "0 0 4px 0",
   },
-  stepDesc: {
+  docSpecBadge: {
+    display: "inline-block",
     fontSize: "12px",
-    color: "#64748b",
-    margin: 0,
-    lineHeight: "1.4",
+    fontWeight: "600",
+    color: "#3B82F6",
+    backgroundColor: "#EFF6FF",
+    padding: "4px 10px",
+    borderRadius: "9999px",
+    marginBottom: "10px",
+  },
+  docFee: {
+    fontSize: "15px",
+    fontWeight: "700",
+    color: "#0F172A",
+    margin: "0 0 14px 0",
+  },
+  bookDocBtn: {
+    width: "100%",
+    backgroundColor: "#3B82F6",
+    color: "#FFFFFF",
+    padding: "10px 16px",
+    borderRadius: "9999px",
+    fontSize: "13px",
+    fontWeight: "600",
+    cursor: "pointer",
+    boxShadow: "0 4px 12px -2px rgba(59, 130, 246, 0.35)",
+    transition: "background 0.2s",
   },
 
-  // FOOTER
   footer: {
-    backgroundColor: "#ffffff",
-    borderTop: "1px solid #e2e8f0",
-    padding: "16px",
     marginTop: "auto",
-  },
-  footerContainer: {
-    maxWidth: "1000px",
-    margin: "0 auto",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    fontSize: "12px",
-    color: "#64748b",
-    flexWrap: "wrap",
-    gap: "10px",
-  },
-  footerLink: {
-    cursor: "pointer",
-    color: "#2563eb",
-    fontWeight: "500",
+    padding: "24px 20px",
+    textAlign: "center",
+    borderTop: "1px solid #E2E8F0",
+    fontSize: "13px",
+    color: "#94A3B8",
+    backgroundColor: "#FFFFFF",
   },
 };
+
+export default LandingPage;

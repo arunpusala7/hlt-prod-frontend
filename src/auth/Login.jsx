@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api/api";
+import { motion } from "framer-motion";
 
 function Login() {
   const navigate = useNavigate();
@@ -21,8 +22,6 @@ function Login() {
         password,
       });
 
-      // ✅ MODIFIED: Extract userId along with token and role
-      // Note: Make sure your Backend AuthController actually returns 'userId' in the JSON response!
       const { token, role, userId, name, email: userEmail } = res.data;
 
       localStorage.setItem("token", token);
@@ -31,8 +30,8 @@ function Login() {
       if (userEmail || email) localStorage.setItem("userEmail", userEmail || email);
 
       if (userId) {
-          localStorage.setItem("userId", userId);
-          localStorage.setItem("user", JSON.stringify({ id: userId, name: name, email: userEmail || email })); 
+        localStorage.setItem("userId", userId);
+        localStorage.setItem("user", JSON.stringify({ id: userId, name: name, email: userEmail || email })); 
       }
 
       switch (role) {
@@ -51,196 +50,216 @@ function Login() {
 
     } catch (err) {
       console.error("LOGIN FAILED:", err);
-      setError("❌ Invalid email or password. Please try again.");
+      setError("Invalid email or password. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={styles.pageContainer}>
-      {/* ================= HEADER ================= */}
+    <div style={styles.pageCanvas}>
+      {/* Top Header */}
       <nav style={styles.navbar}>
         <div style={styles.logo} onClick={() => navigate("/")}>
-          Health<span style={{color: '#1a73e8'}}>Connect</span>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          <span>Health<span style={{ color: '#3B82F6' }}>Connect</span></span>
         </div>
-        <div style={styles.navLinks}>
-          <span style={styles.link} onClick={() => navigate("/")}>Home</span>
+        <div>
+          <span style={styles.navLink} onClick={() => navigate("/")}>&larr; Back to Home</span>
         </div>
       </nav>
 
-      {/* ================= MAIN CONTENT ================= */}
+      {/* Main Content */}
       <div style={styles.contentWrapper}>
-        <form style={styles.card} onSubmit={handleLogin}>
-          <h2 style={styles.title}>Welcome Back</h2>
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card" 
+          style={styles.card}
+        >
+          <div style={styles.cardHeader}>
+            <div style={styles.iconCircle}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.2">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <h2 style={styles.title}>Welcome Back</h2>
+            <p style={styles.subtitle}>Log in to manage appointments & consultations</p>
+          </div>
 
-          {error && <p style={styles.error}>{error}</p>}
+          {error && <div style={styles.errorBox}>{error}</div>}
 
-          <input
-            type="email"
-            placeholder="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={styles.input}
-          />
+          <form onSubmit={handleLogin} style={styles.form}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Email Address</label>
+              <input
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={styles.input}
+              />
+            </div>
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={styles.input}
-          />
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Password</label>
+              <input
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={styles.input}
+              />
+            </div>
 
-          <button 
-            type="submit" 
-            disabled={loading} 
-            style={loading ? { ...styles.button, opacity: 0.7 } : styles.button}
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
+            <button 
+              type="submit" 
+              disabled={loading} 
+              style={styles.submitBtn}
+            >
+              {loading ? "Signing in..." : "Sign In & Continue"}
+            </button>
+          </form>
 
-          <p style={styles.linkText}>
-            Don't have an account? <Link to="/register" style={styles.activeLink}>Register</Link>
+          <p style={styles.footerText}>
+            Don't have an account?{" "}
+            <Link to="/register" style={styles.activeLink}>Create Account</Link>
           </p>
-        </form>
+        </motion.div>
       </div>
-
-      {/* ================= FOOTER ================= */}
-      <footer style={styles.footer}>
-        &copy; 2026 HealthConnect.
-      </footer>
     </div>
   );
 }
 
-export default Login;
-
-/* =======================
-   SHARED STYLES (Warm Professional Theme)
-   ======================= */
 const styles = {
-  pageContainer: {
+  pageCanvas: {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#fdfbf7", // Warm cream background
-    fontFamily: "'Roboto', sans-serif",
+    backgroundColor: "#F8FAFC",
   },
-  
-  // NAVBAR
   navbar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "15px 40px",
-    backgroundColor: "#fdfbf7",
-    borderBottom: "1px solid #e0ddd5",
+    padding: "16px 24px",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backdropFilter: "blur(12px)",
+    borderBottom: "1px solid rgba(226, 232, 240, 0.8)",
   },
   logo: {
-    fontSize: "20px",
-    fontWeight: "600",
-    color: "#2c3e50",
+    fontSize: "18px",
+    fontWeight: "800",
+    color: "#0F172A",
     cursor: "pointer",
-  },
-  navLinks: {
     display: "flex",
-    gap: "24px",
+    alignItems: "center",
+    gap: "8px",
   },
-  link: {
+  navLink: {
     cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#5f6368",
-    transition: "color 0.2s",
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "#64748B",
   },
-
-  // CONTENT
   contentWrapper: {
-    flex: 1, // Pushes footer down
+    flex: 1,
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    padding: "40px 20px",
+    padding: "30px 16px",
   },
   card: {
     width: "100%",
-    maxWidth: "380px",
-    padding: "25px",
-    background: "#ffffff",
-    borderRadius: "12px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-    display: "flex",
-    flexDirection: "column",
-    border: "1px solid #eaeaea",
+    maxWidth: "400px",
+    padding: "32px 28px",
+    borderRadius: "24px",
+  },
+  cardHeader: {
+    textAlign: "center",
+    marginBottom: "24px",
+  },
+  iconCircle: {
+    width: "50px",
+    height: "50px",
+    borderRadius: "50%",
+    backgroundColor: "#EFF6FF",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "12px",
   },
   title: {
-    textAlign: "center",
-    marginBottom: "25px",
-    color: "#2c3e50",
-    fontSize: "24px",
-    fontWeight: "600",
+    fontSize: "22px",
+    fontWeight: "800",
+    color: "#0F172A",
+    margin: "0 0 6px 0",
+  },
+  subtitle: {
+    fontSize: "13px",
+    color: "#64748B",
+    margin: 0,
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+  label: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#0F172A",
   },
   input: {
-    padding: "14px",
-    marginBottom: "15px",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
-    fontSize: "15px",
+    padding: "12px 16px",
+    borderRadius: "9999px",
+    border: "1px solid #CBD5E1",
+    fontSize: "14px",
     outline: "none",
-    backgroundColor: "#fcfcfc",
+    backgroundColor: "#F8FAFC",
   },
-  button: {
+  submitBtn: {
+    width: "100%",
     padding: "14px",
-    marginTop: "10px",
-    background: "#1a73e8", // Google Blue
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
+    marginTop: "8px",
+    borderRadius: "9999px",
+    backgroundColor: "#3B82F6",
+    color: "#FFFFFF",
+    fontSize: "14px",
+    fontWeight: "700",
+    boxShadow: "0 6px 20px rgba(59, 130, 246, 0.4)",
     cursor: "pointer",
-    fontSize: "16px",
-    fontWeight: "600",
-    transition: "background 0.3s ease",
   },
-  linkText: {
+  footerText: {
     textAlign: "center",
     marginTop: "20px",
-    fontSize: "14px",
-    color: "#666",
+    fontSize: "13px",
+    color: "#64748B",
   },
   activeLink: {
-    color: '#1a73e8', 
-    fontWeight: 'bold',
-    textDecoration: 'none'
+    color: "#3B82F6",
+    fontWeight: "700",
   },
-  error: {
-    color: "#d32f2f",
-    background: "#ffebee",
-    padding: "10px",
-    borderRadius: "6px",
+  errorBox: {
+    color: "#DC2626",
+    backgroundColor: "#FEE2E2",
+    padding: "10px 14px",
+    borderRadius: "12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    marginBottom: "16px",
     textAlign: "center",
-    marginBottom: "15px",
-    fontSize: "14px",
-  },
-  success: {
-    color: "#1b5e20",
-    background: "#e8f5e9",
-    padding: "10px",
-    borderRadius: "6px",
-    textAlign: "center",
-    marginBottom: "15px",
-    fontSize: "14px",
-  },
-
-  // FOOTER
-  footer: {
-    backgroundColor: "#222",
-    color: "#888",
-    textAlign: "center",
-    padding: "15px",
-    fontSize: "12px",
-    marginTop: "auto",
   },
 };
+
+export default Login;

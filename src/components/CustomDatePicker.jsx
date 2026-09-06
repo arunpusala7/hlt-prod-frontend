@@ -17,10 +17,9 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       const iso = d.toISOString().split("T")[0];
-      const dayName = i === 0 ? "TODAY" : d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
-      const monthName = d.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
-      const dayNum = d.getDate();
-      dates.push({ iso, dayName, monthName, dayNum });
+      const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+      const dateNum = d.getDate();
+      dates.push({ iso, dayName, dateNum });
     }
     return dates;
   }, []);
@@ -34,14 +33,11 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
     const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
 
     const days = [];
-    // Padding empty days for first week
     for (let i = 0; i < firstDayIndex; i++) {
       days.push(null);
     }
-    // Days of current month
     for (let day = 1; day <= totalDaysInMonth; day++) {
       const dateObj = new Date(year, month, day);
-      // Format ISO string manually in local time to avoid timezone offset shifts
       const yyyy = dateObj.getFullYear();
       const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
       const dd = String(dateObj.getDate()).padStart(2, '0');
@@ -59,105 +55,86 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
     setCurrentMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
-  const handleSelectDay = (iso) => {
-    if (iso < activeMinDateStr) return; // Prevent selecting past dates
-    onChange(iso);
-    setShowCalendarModal(false);
-  };
-
-  const formattedMonthHeader = currentMonthDate.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric"
-  });
+  const monthYearLabel = currentMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
   return (
     <div style={styles.container}>
+      {/* Header with Calendar Modal Toggle */}
       <div style={styles.headerRow}>
-        <span style={styles.label}>Select Appointment Date</span>
+        <span style={styles.label}>Select Date</span>
         <button 
-          type="button" 
-          style={styles.calendarToggleBtn}
           onClick={() => setShowCalendarModal(!showCalendarModal)}
+          style={styles.calendarToggleBtn}
         >
-          📅 Calendar View
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <span>{selectedDate || "Pick Date"}</span>
         </button>
       </div>
 
-      {/* Horizontal Quick Date Strip (Google Calendar Style) */}
-      <div style={styles.dateStrip}>
+      {/* Horizontal Day Strip (Screen 3 Style) */}
+      <div style={styles.stripContainer}>
         {quickDates.map((item) => {
-          const isSelected = selectedDate === item.iso;
+          const isSelected = selectedDate === item.isoDate;
           return (
-            <button
-              key={item.iso}
-              type="button"
-              onClick={() => onChange(item.iso)}
-              style={isSelected ? styles.stripCardActive : styles.stripCard}
+            <div
+              key={item.isoDate}
+              onClick={() => onChange(item.isoDate)}
+              style={isSelected ? styles.stripPillActive : styles.stripPillInactive}
             >
-              <span style={isSelected ? styles.stripDayActive : styles.stripDay}>
-                {item.dayName}
-              </span>
-              <span style={isSelected ? styles.stripNumActive : styles.stripNum}>
-                {item.dayNum}
-              </span>
-              <span style={isSelected ? styles.stripMonthActive : styles.stripMonth}>
-                {item.monthName}
-              </span>
-            </button>
+              <span style={isSelected ? styles.dayActive : styles.dayInactive}>{item.dayName}</span>
+              <span style={isSelected ? styles.numActive : styles.numInactive}>{item.dateNum}</span>
+            </div>
           );
         })}
       </div>
 
-      {/* Google-Style Custom Calendar Modal Grid */}
+      {/* Month Calendar Modal */}
       {showCalendarModal && (
         <div style={styles.modalOverlay} onClick={() => setShowCalendarModal(false)}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <button type="button" style={styles.navBtn} onClick={handlePrevMonth}>‹</button>
-              <h3 style={styles.monthTitle}>{formattedMonthHeader}</h3>
-              <button type="button" style={styles.navBtn} onClick={handleNextMonth}>›</button>
+              <button onClick={handlePrevMonth} style={styles.monthNavBtn}>&lsaquo;</button>
+              <h4 style={styles.monthTitle}>{monthYearLabel}</h4>
+              <button onClick={handleNextMonth} style={styles.monthNavBtn}>&rsaquo;</button>
             </div>
 
-            {/* Weekdays Row */}
-            <div style={styles.weekdaysGrid}>
-              {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(w => (
-                <span key={w} style={styles.weekdayLabel}>{w}</span>
+            <div style={styles.weekHeader}>
+              {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d, i) => (
+                <div key={i} style={styles.weekDay}>{d}</div>
               ))}
             </div>
 
-            {/* Days Grid */}
-            <div style={styles.daysGrid}>
-              {calendarGrid.map((item, idx) => {
-                if (!item) return <div key={`empty-${idx}`} style={styles.emptyDay} />;
-                const isDisabled = item.iso < activeMinDateStr;
-                const isSelected = selectedDate === item.iso;
+            <div style={styles.monthGrid}>
+              {calendarGrid.map((cell, idx) => {
+                if (!cell) return <div key={idx} style={styles.emptyDayCell} />;
+                const isPast = cell.iso < activeMinDateStr;
+                const isSelected = selectedDate === cell.iso;
 
                 return (
                   <button
-                    key={item.iso}
-                    type="button"
-                    disabled={isDisabled}
-                    onClick={() => handleSelectDay(item.iso)}
+                    key={idx}
+                    disabled={isPast}
+                    onClick={() => {
+                      onChange(cell.iso);
+                      setShowCalendarModal(false);
+                    }}
                     style={
-                      isSelected 
-                        ? styles.dayCellSelected 
-                        : (isDisabled ? styles.dayCellDisabled : styles.dayCell)
+                      isSelected
+                        ? styles.dayCellActive
+                        : isPast
+                        ? styles.dayCellDisabled
+                        : styles.dayCellNormal
                     }
                   >
-                    {item.day}
+                    {cell.day}
                   </button>
                 );
               })}
-            </div>
-
-            <div style={styles.modalFooter}>
-              <button 
-                type="button" 
-                style={styles.closeModalBtn}
-                onClick={() => setShowCalendarModal(false)}
-              >
-                Done
-              </button>
             </div>
           </div>
         </div>
@@ -169,7 +146,6 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
 const styles = {
   container: {
     width: "100%",
-    marginBottom: "20px",
   },
   headerRow: {
     display: "flex",
@@ -180,110 +156,98 @@ const styles = {
   label: {
     fontSize: "13px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#0F172A",
   },
   calendarToggleBtn: {
-    background: "none",
-    border: "none",
-    color: "#2563eb",
-    fontSize: "13px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E2E8F0",
+    borderRadius: "9999px",
+    padding: "5px 12px",
+    fontSize: "11px",
     fontWeight: "600",
+    color: "#0F172A",
     cursor: "pointer",
-    padding: "4px 8px",
+    boxShadow: "0 2px 6px rgba(15, 23, 42, 0.03)",
   },
-
-  // Horizontal Quick Strip
-  dateStrip: {
+  stripContainer: {
     display: "flex",
     gap: "8px",
     overflowX: "auto",
     paddingBottom: "8px",
     scrollbarWidth: "none",
-    msOverflowStyle: "none",
   },
-  stripCard: {
-    flex: "0 0 62px",
+  stripPillActive: {
+    minWidth: "52px",
+    height: "64px",
+    borderRadius: "9999px",
+    backgroundColor: "#3B82F6",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "8px 4px",
-    borderRadius: "12px",
-    backgroundColor: "#ffffff",
-    border: "1px solid #cbd5e1",
     cursor: "pointer",
-    transition: "all 0.2s ease",
+    boxShadow: "0 6px 16px rgba(59, 130, 246, 0.35)",
+    flexShrink: 0,
   },
-  stripCardActive: {
-    flex: "0 0 62px",
+  stripPillInactive: {
+    minWidth: "52px",
+    height: "64px",
+    borderRadius: "9999px",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #F1F5F9",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "8px 4px",
-    borderRadius: "12px",
-    backgroundColor: "#2563eb",
-    border: "1px solid #2563eb",
     cursor: "pointer",
-    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+    boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)",
+    flexShrink: 0,
   },
-  stripDay: {
+  dayActive: {
     fontSize: "10px",
-    fontWeight: "700",
-    color: "#64748b",
-    marginBottom: "2px",
-  },
-  stripDayActive: {
-    fontSize: "10px",
-    fontWeight: "700",
-    color: "#ffffff",
-    marginBottom: "2px",
-  },
-  stripNum: {
-    fontSize: "16px",
-    fontWeight: "800",
-    color: "#0f172a",
-    marginBottom: "2px",
-  },
-  stripNumActive: {
-    fontSize: "16px",
-    fontWeight: "800",
-    color: "#ffffff",
-    marginBottom: "2px",
-  },
-  stripMonth: {
-    fontSize: "10px",
+    color: "#EFF6FF",
     fontWeight: "600",
-    color: "#94a3b8",
+    marginBottom: "4px",
   },
-  stripMonthActive: {
+  dayInactive: {
     fontSize: "10px",
-    fontWeight: "600",
-    color: "#ffffff",
+    color: "#64748B",
+    fontWeight: "500",
+    marginBottom: "4px",
+  },
+  numActive: {
+    fontSize: "14px",
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  numInactive: {
+    fontSize: "14px",
+    fontWeight: "700",
+    color: "#0F172A",
   },
 
-  // Modal Overlay
+  // Modal
   modalOverlay: {
     position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(15, 23, 42, 0.5)",
-    backdropFilter: "blur(4px)",
+    inset: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.4)",
+    backdropFilter: "blur(6px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2000,
+    zIndex: 1500,
     padding: "16px",
   },
-  modalContent: {
-    backgroundColor: "#ffffff",
-    borderRadius: "16px",
-    padding: "20px",
+  modalCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "24px",
+    padding: "24px",
     width: "100%",
     maxWidth: "340px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
+    boxShadow: "0 20px 40px rgba(15, 23, 42, 0.15)",
   },
   modalHeader: {
     display: "flex",
@@ -292,83 +256,67 @@ const styles = {
     marginBottom: "16px",
   },
   monthTitle: {
-    margin: 0,
     fontSize: "15px",
-    fontWeight: "700",
-    color: "#0f172a",
+    fontWeight: "800",
+    color: "#0F172A",
+    margin: 0,
   },
-  navBtn: {
-    background: "#f1f5f9",
-    border: "none",
+  monthNavBtn: {
     width: "32px",
     height: "32px",
     borderRadius: "50%",
-    fontSize: "16px",
-    fontWeight: "bold",
-    color: "#334155",
+    background: "#F1F5F9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "18px",
     cursor: "pointer",
   },
-  weekdaysGrid: {
+  weekHeader: {
     display: "grid",
     gridTemplateColumns: "repeat(7, 1fr)",
     textAlign: "center",
     marginBottom: "8px",
   },
-  weekdayLabel: {
+  weekDay: {
     fontSize: "11px",
     fontWeight: "700",
-    color: "#64748b",
+    color: "#94A3B8",
   },
-  daysGrid: {
+  monthGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(7, 1fr)",
-    gap: "4px",
-    textAlign: "center",
-    marginBottom: "16px",
+    gap: "6px",
   },
-  emptyDay: {
+  emptyDayCell: {
     height: "36px",
   },
-  dayCell: {
+  dayCellNormal: {
     height: "36px",
-    border: "none",
-    background: "transparent",
     borderRadius: "50%",
+    background: "transparent",
+    color: "#0F172A",
     fontSize: "13px",
     fontWeight: "600",
-    color: "#0f172a",
     cursor: "pointer",
+  },
+  dayCellActive: {
+    height: "36px",
+    borderRadius: "50%",
+    background: "#3B82F6",
+    color: "#FFFFFF",
+    fontSize: "13px",
+    fontWeight: "800",
+    cursor: "pointer",
+    boxShadow: "0 4px 10px rgba(59, 130, 246, 0.4)",
   },
   dayCellDisabled: {
     height: "36px",
-    border: "none",
-    background: "transparent",
-    fontSize: "13px",
-    color: "#cbd5e1",
-    cursor: "not-allowed",
-  },
-  dayCellSelected: {
-    height: "36px",
-    border: "none",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
     borderRadius: "50%",
+    background: "transparent",
+    color: "#CBD5E1",
     fontSize: "13px",
-    fontWeight: "700",
-    cursor: "pointer",
-  },
-  modalFooter: {
-    textAlign: "right",
-  },
-  closeModalBtn: {
-    padding: "8px 16px",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "6px",
-    fontSize: "13px",
-    fontWeight: "600",
-    cursor: "pointer",
+    cursor: "not-allowed",
   },
 };
 

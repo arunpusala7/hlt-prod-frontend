@@ -26,11 +26,10 @@ function DoctorDashboard() {
     api.get("/api/doctor/me")
       .then(res => setDoctor(res.data))
       .catch(() => {
-        setDoctor({ name: localStorage.getItem("userName") || "Specialist" });
+        setDoctor({ name: localStorage.getItem("userName") || "Specialist", specialization: "General Medicine" });
       });
   }, []);
 
-  // Click Outside Listener
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
@@ -76,19 +75,21 @@ function DoctorDashboard() {
   if (!doctor) {
     return (
       <div style={styles.loading}>
-        <div style={{ textAlign: "center" }}>
-          <p style={{ color: "#64748b", fontSize: "14px", fontWeight: "600" }}>Loading Doctor Workspace...</p>
-        </div>
+        <p style={{ color: "#64748B", fontSize: "14px", fontWeight: "600" }}>Loading Doctor Workspace...</p>
       </div>
     );
   }
 
   return (
     <div style={styles.dashboardContainer}>
-      {/* HEADER */}
+      {/* Top Navbar */}
       <nav style={styles.navbar}>
         <div style={styles.logo} onClick={() => setActiveTab("overview")}>
-          Health<span style={{ color: '#2563eb' }}>Connect</span> <span style={styles.badge}>Doctor</span>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          <span>Health<span style={{ color: '#3B82F6' }}>Connect</span></span>
+          <span style={styles.badge}>Doctor</span>
         </div>
 
         {/* Profile Dropdown Section */}
@@ -122,13 +123,14 @@ function DoctorDashboard() {
               </div>
               <div style={styles.menuDivider}></div>
               <div style={styles.menuItemDanger} onClick={handleLogout}>
-                Sign Out
+                🚪 Sign Out
               </div>
             </div>
           )}
         </div>
       </nav>
 
+      {/* Main Layout */}
       <div className="mobile-main-layout" style={styles.mainLayout}>
         <div className="desktop-sidebar">
           <DoctorSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -151,8 +153,8 @@ function DoctorDashboard() {
           )}
 
           {activeTab === "scan" && (
-            <div style={styles.scannerWrapper}>
-              <h2 style={{ margin: "0 0 16px 0", color: "#0f172a", fontSize: "18px", fontWeight: "700" }}>
+            <div className="glass-card" style={styles.scannerWrapper}>
+              <h2 style={{ margin: "0 0 16px 0", color: "#0F172A", fontSize: "18px", fontWeight: "700" }}>
                 Patient Ticket Verification
               </h2>
               <DoctorScanner />
@@ -161,39 +163,63 @@ function DoctorDashboard() {
         </main>
       </div>
 
-      {/* MOBILE BOTTOM NAVIGATION BAR FOR DOCTORS */}
+      {/* Mobile Floating Glass Navigation */}
       <nav className="mobile-bottom-nav">
         <div 
           className={`mobile-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
-          <span className="mobile-nav-icon">📊</span>
+          <div className="mobile-nav-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </div>
           <span>Overview</span>
         </div>
         <div 
           className={`mobile-nav-item ${activeTab === 'appointments' ? 'active' : ''}`}
           onClick={() => setActiveTab('appointments')}
         >
-          <span className="mobile-nav-icon">📅</span>
+          <div className="mobile-nav-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
           <span>Today</span>
         </div>
         <div 
           className={`mobile-nav-item ${activeTab === 'schedule' ? 'active' : ''}`}
           onClick={() => setActiveTab('schedule')}
         >
-          <span className="mobile-nav-icon">⏰</span>
+          <div className="mobile-nav-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
           <span>Slots</span>
         </div>
         <div 
           className={`mobile-nav-item ${activeTab === 'scan' ? 'active' : ''}`}
           onClick={() => setActiveTab('scan')}
         >
-          <span className="mobile-nav-icon">📷</span>
-          <span>Scanner</span>
+          <div className="mobile-nav-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+          </div>
+          <span>Scan</span>
         </div>
       </nav>
 
-      {/* PATIENT HISTORY DRAWER */}
+      {/* Patient History Drawer */}
       <PatientHistoryDrawer 
         isOpen={isDrawerOpen} 
         onClose={() => setIsDrawerOpen(false)} 
@@ -209,25 +235,25 @@ const styles = {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#f8fafc",
-    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+    backgroundColor: "#F8FAFC",
   },
   navbar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0 20px",
-    height: "60px",
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #f1f5f9",
+    padding: "0 24px",
+    height: "64px",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backdropFilter: "blur(16px)",
+    borderBottom: "1px solid rgba(226, 232, 240, 0.8)",
     position: "sticky",
     top: 0,
     zIndex: 1100,
   },
   logo: {
     fontSize: "18px",
-    fontWeight: "700",
-    color: "#0f172a",
+    fontWeight: "800",
+    color: "#0F172A",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
@@ -235,10 +261,10 @@ const styles = {
   },
   badge: {
     fontSize: "10px",
-    background: "#eff6ff",
-    color: "#2563eb",
-    padding: "2px 6px",
-    borderRadius: "6px",
+    background: "#EFF6FF",
+    color: "#3B82F6",
+    padding: "3px 8px",
+    borderRadius: "9999px",
     textTransform: "uppercase",
     fontWeight: "700",
   },
@@ -246,86 +272,83 @@ const styles = {
     position: "relative",
   },
   avatarCircle: {
-    width: "34px",
-    height: "34px",
+    width: "38px",
+    height: "38px",
     borderRadius: "50%",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
+    backgroundColor: "#3B82F6",
+    color: "#FFFFFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontWeight: "800",
     fontSize: "14px",
     cursor: "pointer",
+    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.35)",
   },
   dropdownMenu: {
     position: "absolute",
-    top: "42px",
-    right: "0",
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "12px",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
-    width: "190px",
+    top: "48px",
+    right: 0,
+    background: "#FFFFFF",
+    border: "1px solid #E2E8F0",
+    borderRadius: "18px",
+    boxShadow: "0 14px 35px rgba(15, 23, 42, 0.12)",
+    width: "210px",
     overflow: "hidden",
     zIndex: 1200,
+    padding: "6px 0",
   },
   menuHeader: {
-    padding: "12px 14px",
-    backgroundColor: "#f8fafc",
+    padding: "12px 16px",
+    backgroundColor: "#F8FAFC",
   },
   docNameTitle: {
     margin: "0 0 2px 0",
     fontSize: "13px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#0F172A",
   },
   docSubTitle: {
     margin: 0,
     fontSize: "11px",
-    color: "#64748b",
+    color: "#64748B",
   },
   menuDivider: {
     height: "1px",
-    background: "#f1f5f9",
-    margin: "0",
+    background: "#F1F5F9",
+    margin: "4px 0",
   },
   menuItem: {
-    padding: "10px 14px",
+    padding: "10px 16px",
     cursor: "pointer",
     fontSize: "13px",
     color: "#334155",
-    fontWeight: "500",
-    transition: "background 0.2s",
+    fontWeight: "600",
   },
   menuItemDanger: {
-    padding: "10px 14px",
+    padding: "10px 16px",
     cursor: "pointer",
     fontSize: "13px",
-    color: "#dc2626",
+    color: "#DC2626",
     fontWeight: "600",
   },
   mainLayout: {
     display: "flex",
     flex: 1,
-    height: "calc(100vh - 60px)",
+    height: "calc(100vh - 64px)",
   },
   contentArea: {
     flex: 1,
-    padding: "24px 20px",
+    padding: "24px",
     overflowY: "auto",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F8FAFC",
   },
   scannerWrapper: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    background: "#ffffff",
     padding: "30px",
-    borderRadius: "14px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
-    maxWidth: "600px",
+    maxWidth: "520px",
     margin: "0 auto",
   },
   loading: {
@@ -333,7 +356,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F8FAFC",
   },
 };
 
