@@ -739,7 +739,6 @@ const styles = {
     justifyContent: "flex-end",
     alignItems: "stretch",
     zIndex: 999999,
-    touchAction: "none",
   },
   calendarModalCard: {
     backgroundColor: "#FFFFFF",

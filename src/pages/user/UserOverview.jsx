@@ -8,6 +8,8 @@ import AppointmentReceipt from "./AppointmentReceipt";
 import CancelReasonDropdown from "../../components/CancelReasonDropdown";
 import { getLocalDateString } from "../../utils/dateUtils";
 import { createPortal } from "react-dom";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -285,6 +287,29 @@ function UserOverview({
   // In-Page Receipt Pass Modal State
   const [viewingReceipt, setViewingReceipt] = useState(null);
 
+  // In-Page Digital Prescription Bottom Sheet State (75% height)
+  const [viewingPrescription, setViewingPrescription] = useState(null);
+  const prescriptionRef = useRef(null);
+
+  const downloadRxPDF = async () => {
+    if (!prescriptionRef.current) return;
+    try {
+      toast.loading("Generating PDF Prescription...", { id: "rx-pdf" });
+      const element = prescriptionRef.current;
+      const canvas = await html2canvas(element, { scale: 2 });
+      const data = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgProperties = pdf.getImageProperties(data);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProperties.height * pdfWidth) / imgProperties.width;
+      toast.dismiss("rx-pdf");
+      pdf.addImage(data, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Prescription-${viewingPrescription?.ticketId || 'record'}.pdf`);
+    } catch {
+      toast.error("Failed to generate PDF");
+    }
+  };
+
   // In-Page Cancel Modal State
   const [cancellingAppt, setCancellingAppt] = useState(null);
   const [cancelReason, setCancelReason] = useState("Busy on that date");
@@ -370,21 +395,15 @@ function UserOverview({
 
   // Lock background page scroll whenever any 75% bottom sheet or modal is open
   const isAnySheetOpen = Boolean(
-    bookingDoctor || showCustomCalendar || viewingReceipt || cancellingAppt || reschedulingAppt
+    bookingDoctor || showCustomCalendar || viewingReceipt || cancellingAppt || reschedulingAppt || viewingPrescription
   );
 
   useEffect(() => {
     if (isAnySheetOpen) {
       const originalOverflow = document.body.style.overflow;
-      const originalOverscroll = document.body.style.overscrollBehavior;
-      const originalTouchAction = document.body.style.touchAction;
       document.body.style.overflow = "hidden";
-      document.body.style.overscrollBehavior = "none";
-      document.body.style.touchAction = "none";
       return () => {
         document.body.style.overflow = originalOverflow;
-        document.body.style.overscrollBehavior = originalOverscroll;
-        document.body.style.touchAction = originalTouchAction;
       };
     }
   }, [isAnySheetOpen]);
@@ -899,6 +918,17 @@ function UserOverview({
                   >
                     View Pass 🎟️
                   </motion.button>
+                  {(nextAppointment.prescription || nextAppointment.status === "COMPLETED") && (
+                    <motion.button 
+                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
+                      style={styles.cardRxBtn} 
+                      onClick={(e) => { e.stopPropagation(); setViewingPrescription(nextAppointment); }}
+                      title="View Digital Prescription & Clinical Advice"
+                    >
+                      📄 Rx Notes
+                    </motion.button>
+                  )}
                 </div>
               </div>
 
@@ -1077,14 +1107,13 @@ function UserOverview({
           {bookingDoctor && (
             <motion.div 
               className="swiggy-sheet-backdrop"
-            style={styles.bottomSheetBackdrop}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            onClick={() => setBookingDoctor(null)}
-            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
-          >
+              style={styles.bottomSheetBackdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              onClick={() => setBookingDoctor(null)}
+            >
             <motion.div 
               className="swiggy-bottom-sheet"
               initial={{ y: "100%" }}
@@ -1329,9 +1358,8 @@ function UserOverview({
           {showCustomCalendar && (
             <div 
               style={styles.calendarModalOverlay} 
-            onClick={() => setShowCustomCalendar(false)}
-            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
-          >
+              onClick={() => setShowCustomCalendar(false)}
+            >
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -1488,9 +1516,8 @@ function UserOverview({
           {cancellingAppt && (
             <div 
               style={styles.sheetOverlay} 
-            onClick={() => setCancellingAppt(null)}
-            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
-          >
+              onClick={() => setCancellingAppt(null)}
+            >
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -1572,9 +1599,8 @@ function UserOverview({
           {reschedulingAppt && (
             <div 
               style={styles.sheetOverlay} 
-            onClick={() => setReschedulingAppt(null)}
-            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
-          >
+              onClick={() => setReschedulingAppt(null)}
+            >
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -1709,6 +1735,105 @@ function UserOverview({
       </AnimatePresence>,
       document.body
     )}
+
+      {/* =====================================================================
+          IN-PAGE MODAL 5: 75% DIGITAL PRESCRIPTION BOTTOM SHEET
+          ===================================================================== */}
+      {createPortal(
+        <AnimatePresence>
+          {viewingPrescription && (
+            <div 
+              style={styles.sheetOverlay} 
+              onClick={() => setViewingPrescription(null)}
+            >
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 28, stiffness: 300 }}
+                style={styles.rescheduleBottomSheet75}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Drag Handle */}
+                <div style={styles.sheetHandleRow} onClick={() => setViewingPrescription(null)}>
+                  <div style={styles.sheetDragPill}></div>
+                </div>
+
+                {/* Top Nav */}
+                <div style={styles.sheetTopNav}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "16px" }}>📄</span>
+                    <h3 style={styles.sheetTitle}>Digital Medical Prescription</h3>
+                  </div>
+                  <button 
+                    onClick={() => setViewingPrescription(null)} 
+                    style={styles.sheetCloseBtn}
+                    title="Close sheet"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+
+                <div style={styles.sheetBody}>
+                  <div ref={prescriptionRef} style={styles.rxContainer}>
+                    <div style={styles.rxHeader}>
+                      <div>
+                        <h3 style={{ margin: 0, color: '#2563EB', fontSize: '18px', fontWeight: '800' }}>HealthConnect Rx</h3>
+                        <span style={{ fontSize: '12px', color: '#64748B' }}>Verified Digital Medical Prescription</span>
+                      </div>
+                      <span style={{ padding: "4px 10px", backgroundColor: "#EFF6FF", color: "#2563EB", borderRadius: "9999px", fontSize: "11px", fontWeight: "700" }}>
+                        AUTHENTICATED
+                      </span>
+                    </div>
+                    <hr style={{ border: 0, borderTop: '1px solid #E2E8F0', margin: '14px 0' }} />
+                    
+                    <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <span style={{ color: "#64748B" }}>Doctor:</span>
+                        <strong style={{ color: "#0F172A" }}>{formatDoctorName(viewingPrescription.doctorName)}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <span style={{ color: "#64748B" }}>Consultation for:</span>
+                        <strong style={{ color: "#0F172A" }}>{viewingPrescription.userName || localStorage.getItem("userName") || "Alex"}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <span style={{ color: "#64748B" }}>Date:</span>
+                        <strong style={{ color: "#0F172A" }}>{viewingPrescription.date || viewingPrescription.appointmentDate}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
+                        <span style={{ color: "#64748B" }}>Ticket ID:</span>
+                        <span style={{ fontFamily: "monospace", color: "#2563EB", fontWeight: "700" }}>
+                          {viewingPrescription.ticketId || `HC-${viewingPrescription.appointmentId || viewingPrescription.id}`}
+                        </span>
+                      </div>
+
+                      <div style={{ marginTop: '14px', padding: '14px', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+                        <p style={{ fontWeight: '700', marginBottom: '6px', color: '#0F172A', fontSize: "12.5px" }}>Clinical Advice & Prescribed Medicines:</p>
+                        <p style={{ color: '#334155', fontStyle: 'italic', margin: 0, lineHeight: 1.6 }}>
+                          "{viewingPrescription.prescription || "Standard recovery instructions provided during consultation."}"
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.sheetStickyBottom}>
+                  <button onClick={() => setViewingPrescription(null)} style={styles.cancelDismissBtn}>
+                    Close
+                  </button>
+                  <button onClick={downloadRxPDF} style={styles.cardDetailsBtn}>
+                    📥 Download PDF Rx
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
@@ -2050,6 +2175,33 @@ const styles = {
     alignItems: "center",
     gap: "4px",
   },
+  cardRxBtn: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    color: "#059669",
+    fontSize: "11px",
+    fontWeight: "700",
+    padding: "5px 12px",
+    borderRadius: "9999px",
+    cursor: "pointer",
+    border: "none",
+    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
+    transition: "all 0.18s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  rxContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "18px",
+    padding: "20px",
+    border: "1px solid #E2E8F0",
+    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.04)",
+  },
+  rxHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
   cardArrowCircle: {
     position: "absolute",
     top: "16px",
@@ -2303,7 +2455,6 @@ const styles = {
     justifyContent: "flex-end",
     alignItems: "stretch",
     zIndex: 999999,
-    touchAction: "none",
   },
   swiggyBookingSheet: {
     backgroundColor: "#FFFFFF",
@@ -2396,6 +2547,7 @@ const styles = {
     overscrollBehavior: "contain",
     overscrollBehaviorY: "contain",
     WebkitOverflowScrolling: "touch",
+    touchAction: "pan-y",
   },
   docHeaderRow: {
     display: "flex",
@@ -2617,7 +2769,6 @@ const styles = {
     justifyContent: "flex-end",
     alignItems: "stretch",
     zIndex: 1000005,
-    touchAction: "none",
   },
   calendarModalCard: {
     backgroundColor: "#FFFFFF",
@@ -3053,7 +3204,6 @@ const styles = {
     justifyContent: "flex-end",
     alignItems: "stretch",
     zIndex: 999999,
-    touchAction: "none",
   },
   cancelBottomSheet: {
     backgroundColor: "#FFFFFF",
@@ -3091,6 +3241,7 @@ const styles = {
     overscrollBehavior: "contain",
     overscrollBehaviorY: "contain",
     WebkitOverflowScrolling: "touch",
+    touchAction: "pan-y",
   },
   sheetStickyBottom: {
     padding: "16px 24px",

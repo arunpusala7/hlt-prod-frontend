@@ -1241,7 +1241,6 @@ const styles = {
     justifyContent: "center",
     zIndex: 9999999,
     padding: "16px",
-    touchAction: "none",
   },
   qrModalCard: {
     backgroundColor: "#FFFFFF",

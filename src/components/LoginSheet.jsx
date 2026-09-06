@@ -17,17 +17,9 @@ function LoginSheet({ isOpen, onClose, onSwitchToRegister, initialEmail = "", in
   useEffect(() => {
     if (isOpen) {
       const originalOverflow = document.body.style.overflow;
-      const originalOverscroll = document.body.style.overscrollBehavior;
-      const originalTouchAction = document.body.style.touchAction;
-
       document.body.style.overflow = "hidden";
-      document.body.style.overscrollBehavior = "none";
-      document.body.style.touchAction = "none";
-
       return () => {
         document.body.style.overflow = originalOverflow;
-        document.body.style.overscrollBehavior = originalOverscroll;
-        document.body.style.touchAction = originalTouchAction;
       };
     }
   }, [isOpen]);
@@ -309,8 +301,6 @@ const styles = {
     justifyContent: "flex-end",
     alignItems: "center",
     zIndex: 99990,
-    touchAction: "none",
-    userSelect: "none",
   },
   bottomSheet: {
     width: "100%",

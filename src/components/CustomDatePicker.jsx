@@ -253,7 +253,6 @@ const styles = {
     justifyContent: "center",
     zIndex: 10000005,
     padding: "16px",
-    touchAction: "none",
   },
   modalCard: {
     backgroundColor: "rgba(255, 255, 255, 0.92)",

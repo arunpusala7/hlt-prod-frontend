@@ -60,22 +60,14 @@ function MyAppointments() {
     loadAppointments();
   }, [loadAppointments]);
 
-  // Lock background body scroll completely whenever any sheet or modal is active
+  // Lock background body scroll cleanly whenever any sheet or modal is active
   const isAnySheetOpen = Boolean(cancelModalOpen || rescheduleModalOpen || prescriptionModalOpen || viewingReceiptAppt);
   useEffect(() => {
     if (isAnySheetOpen) {
       const originalOverflow = document.body.style.overflow;
-      const originalOverscroll = document.body.style.overscrollBehavior;
-      const originalTouchAction = document.body.style.touchAction;
-
       document.body.style.overflow = "hidden";
-      document.body.style.overscrollBehavior = "none";
-      document.body.style.touchAction = "none";
-
       return () => {
         document.body.style.overflow = originalOverflow;
-        document.body.style.overscrollBehavior = originalOverscroll;
-        document.body.style.touchAction = originalTouchAction;
       };
     }
   }, [isAnySheetOpen]);
@@ -342,7 +334,7 @@ function MyAppointments() {
                   </motion.button>
                 </>
               )}
-              {a.status === "COMPLETED" && (
+              {(a.status === "COMPLETED" || a.prescription) && (
                 <motion.button 
                   whileTap={{ scale: 0.96 }}
                   style={styles.btnPrescription} 
@@ -362,9 +354,8 @@ function MyAppointments() {
           {cancelModalOpen && (
             <div 
               style={styles.sheetOverlay} 
-            onClick={() => setCancelModalOpen(false)}
-            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
-          >
+              onClick={() => setCancelModalOpen(false)}
+            >
             <motion.div 
               initial={{ y: "100%" }} 
               animate={{ y: 0 }} 
@@ -435,9 +426,8 @@ function MyAppointments() {
           {rescheduleModalOpen && (
             <div 
               style={styles.sheetOverlay} 
-            onClick={() => setRescheduleModalOpen(false)}
-            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
-          >
+              onClick={() => setRescheduleModalOpen(false)}
+            >
             <motion.div 
               initial={{ y: "100%" }} 
               animate={{ y: 0 }} 
@@ -526,9 +516,8 @@ function MyAppointments() {
           {prescriptionModalOpen && selectedPrescriptionAppt && (
             <div 
               style={styles.sheetOverlay} 
-            onClick={() => setPrescriptionModalOpen(false)}
-            onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
-          >
+              onClick={() => setPrescriptionModalOpen(false)}
+            >
             <motion.div 
               initial={{ y: "100%" }} 
               animate={{ y: 0 }} 
@@ -865,7 +854,6 @@ const styles = {
     justifyContent: "center",
     zIndex: 2000,
     padding: "16px",
-    touchAction: "none",
   },
   sheetOverlay: {
     position: "fixed",
@@ -883,8 +871,6 @@ const styles = {
     justifyContent: "flex-end",
     alignItems: "stretch",
     zIndex: 999999,
-    touchAction: "none",
-    userSelect: "none",
   },
   bottomSheet75: {
     backgroundColor: "#FFFFFF",
@@ -980,6 +966,7 @@ const styles = {
     overscrollBehavior: "contain",
     overscrollBehaviorY: "contain",
     WebkitOverflowScrolling: "touch",
+    touchAction: "pan-y",
     flex: 1,
   },
   sheetStickyBottom: {

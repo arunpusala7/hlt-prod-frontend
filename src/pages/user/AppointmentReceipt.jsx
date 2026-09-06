@@ -22,18 +22,12 @@ const AppointmentReceipt = ({ appointment, onClose }) => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  // Lock body scroll and prevent background chaining when receipt sheet is open
+  // Lock body scroll cleanly when receipt sheet is open
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
-    const originalOverscroll = document.body.style.overscrollBehavior;
-    const originalTouchAction = document.body.style.touchAction;
     document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
-    document.body.style.touchAction = "none";
     return () => {
       document.body.style.overflow = originalOverflow;
-      document.body.style.overscrollBehavior = originalOverscroll;
-      document.body.style.touchAction = originalTouchAction;
     };
   }, []);
 
@@ -177,7 +171,6 @@ const AppointmentReceipt = ({ appointment, onClose }) => {
     <div 
       style={styles.sheetOverlay} 
       onClick={onClose}
-      onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
     >
       <motion.div
         initial={{ y: "100%" }}
@@ -295,7 +288,6 @@ const styles = {
     justifyContent: "flex-end",
     alignItems: "stretch",
     zIndex: 9999999,
-    touchAction: "none",
   },
   bottomSheet: {
     width: "100%",
@@ -335,6 +327,7 @@ const styles = {
     overscrollBehavior: "contain",
     overscrollBehaviorY: "contain",
     WebkitOverflowScrolling: "touch",
+    touchAction: "pan-y",
   },
   cleanPassCard: {
     backgroundColor: "#F8FAFC",
