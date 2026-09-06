@@ -112,12 +112,12 @@ export function applyTheme(themeId) {
 
 export default function ThemeSelector({ className = "" }) {
   const [activeTheme, setActiveTheme] = useState(() => {
-    return localStorage.getItem("appTheme") || "high-glass";
+    return localStorage.getItem("appTheme") || "base-normal";
   });
 
   useEffect(() => {
     // Ensure document attribute is synchronized on mount
-    const saved = localStorage.getItem("appTheme") || "high-glass";
+    const saved = localStorage.getItem("appTheme") || "base-normal";
     document.documentElement.setAttribute("data-app-theme", saved);
     setActiveTheme(saved);
 

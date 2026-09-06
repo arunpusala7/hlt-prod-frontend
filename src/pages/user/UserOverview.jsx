@@ -7,6 +7,7 @@ import { formatDoctorName } from "../../utils/formatDoctorName";
 import AppointmentReceipt from "./AppointmentReceipt";
 import CancelReasonDropdown from "../../components/CancelReasonDropdown";
 import { getLocalDateString } from "../../utils/dateUtils";
+import PullToRefresh from "../../components/PullToRefresh";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -241,6 +242,7 @@ function UserOverview({
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState(null);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const userName = localStorage.getItem("userName") || "Alex";
 
   const searchInputRef = useRef(null);
@@ -343,6 +345,21 @@ function UserOverview({
       }
     } catch (err) {
       console.error("Failed to refresh doctors:", err);
+    }
+  };
+
+  const handleRefreshData = async () => {
+    setIsManualRefreshing(true);
+    try {
+      await Promise.all([
+        fetchUpcomingAppointment(),
+        fetchDoctorsList()
+      ]);
+      toast.success("Page refreshed", { id: "refresh-page", icon: "✨", duration: 1500 });
+    } catch {
+      toast.error("Could not refresh data. Check connection.");
+    } finally {
+      setTimeout(() => setIsManualRefreshing(false), 500);
     }
   };
 
@@ -752,34 +769,64 @@ function UserOverview({
   const groupedBookingSlots = groupSlots(bookingSlots);
 
   return (
-    <div style={isPhoneMode ? styles.phoneContainer : styles.fluidContainer}>
-      {/* Top Header Row - Fixed Greeting & Notification Header */}
-      <div className="fixed-greeting-header" style={styles.greetingRow}>
-        <div style={styles.userBio}>
-          <div>
-            <span style={styles.greetingSub}>{getGreeting()}</span>
-            <h2 style={styles.greetingName}>{userName}</h2>
+    <PullToRefresh onRefresh={handleRefreshData}>
+      <div style={isPhoneMode ? styles.phoneContainer : styles.fluidContainer}>
+        {/* Top Header Row - Fixed Greeting & Notification Header */}
+        <div className="fixed-greeting-header" style={styles.greetingRow}>
+          <div style={styles.userBio}>
+            <div>
+              <span style={styles.greetingSub}>{getGreeting()}</span>
+              <h2 style={styles.greetingName}>{userName}</h2>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {/* Direct Refresh Button */}
+            <button
+              style={styles.refreshBtn}
+              onClick={handleRefreshData}
+              disabled={isManualRefreshing}
+              title="Refresh Page & Appointments"
+              aria-label="Refresh page data"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#0F172A"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  transition: "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
+                  transform: isManualRefreshing ? "rotate(360deg)" : "none",
+                }}
+              >
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+            </button>
+
+            {/* Notification Bell */}
+            <div 
+              style={styles.bellBtn} 
+              onClick={() => {
+                if (nextAppointment) {
+                  setViewingReceipt(nextAppointment);
+                } else {
+                  toast("No pending notifications. All consultations up to date!", { icon: "🔔" });
+                }
+              }} 
+              title="Consultation Notifications"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F172A" strokeWidth="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              {nextAppointment && <span style={styles.bellDot}></span>}
+            </div>
           </div>
         </div>
-
-        <div 
-          style={styles.bellBtn} 
-          onClick={() => {
-            if (nextAppointment) {
-              setViewingReceipt(nextAppointment);
-            } else {
-              toast("No pending notifications. All consultations up to date!", { icon: "🔔" });
-            }
-          }} 
-          title="Consultation Notifications"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F172A" strokeWidth="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-          {nextAppointment && <span style={styles.bellDot}></span>}
-        </div>
-      </div>
 
       {/* =====================================================================
           1. UPCOMING APPOINTMENT CARD (SCROLLS NATURALLY WITH GREETING, FULL SIZE)
@@ -1630,7 +1677,8 @@ function UserOverview({
         )}
       </AnimatePresence>
     </div>
-  );
+  </PullToRefresh>
+);
 }
 
 const styles = {
@@ -1694,6 +1742,20 @@ const styles = {
     margin: 0,
     letterSpacing: "-0.01em",
     lineHeight: "1.2",
+  },
+  refreshBtn: {
+    width: "36px",
+    height: "36px",
+    borderRadius: "50%",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E2E8F0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)",
+    padding: 0,
+    outline: "none",
   },
   bellBtn: {
     width: "36px",

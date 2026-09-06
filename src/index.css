@@ -6,7 +6,7 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
 
-:root, [data-app-theme="high-glass"] {
+:root, [data-app-theme="base-normal"] {
   /* Color Palette */
   --canvas: #eff6ff;
   --surface: #ffffff;
@@ -43,7 +43,27 @@
   --radius-xl: 32px;
   --radius-pill: 9999px;
 
-  /* Theme 1: High Glassmorphism Tokens (Default) */
+  /* Default Theme: Base Normal (Clean Classic Solid Card UI) */
+  --canvas-bg: #f8fafc;
+  --body-bg-image: none;
+  --card-bg: #ffffff;
+  --card-bg-hover: #ffffff;
+  --card-blur: none;
+  --card-border: 1px solid #e2e8f0;
+  --card-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.05), 0 1px 3px 0 rgba(15, 23, 42, 0.04);
+  --card-shadow-hover: 0 8px 24px -4px rgba(15, 23, 42, 0.09);
+  --header-bg: #ffffff;
+  --nav-bg: #ffffff;
+  --input-bg: #f8fafc;
+  --input-border: 1px solid #e2e8f0;
+  --sticky-bg: #ffffff;
+  --sticky-border: 1px solid #e2e8f0;
+  --sticky-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.05);
+  --stat-card-bg: #ffffff;
+}
+
+/* Theme 1: High Glassmorphism Tokens */
+[data-app-theme="high-glass"] {
   --canvas-bg: #eff6ff;
   --body-bg-image: 
     radial-gradient(at 5% 5%, rgba(59, 130, 246, 0.18) 0px, transparent 50%),
@@ -91,27 +111,7 @@
   --stat-card-bg: rgba(255, 255, 255, 0.75);
 }
 
-/* Theme 3: Base Normal (Clean Classic Solid Card UI) */
-[data-app-theme="base-normal"] {
-  --canvas-bg: #f8fafc;
-  --body-bg-image: none;
-  --card-bg: #ffffff;
-  --card-bg-hover: #ffffff;
-  --card-blur: none;
-  --card-border: 1px solid #e2e8f0;
-  --card-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.05), 0 1px 3px 0 rgba(15, 23, 42, 0.04);
-  --card-shadow-hover: 0 8px 24px -4px rgba(15, 23, 42, 0.09);
-  --header-bg: #ffffff;
-  --nav-bg: #ffffff;
-  --input-bg: #f8fafc;
-  --input-border: 1px solid #e2e8f0;
-  --sticky-bg: #ffffff;
-  --sticky-border: 1px solid #e2e8f0;
-  --sticky-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.05);
-  --stat-card-bg: #ffffff;
-}
-
-/* Theme 4: Minimal like Swiggy (Ultra-Flat, Clean, Snappy, Distraction-Free) */
+/* Theme 3: Minimal like Swiggy (Ultra-Flat, Clean, Snappy, Distraction-Free) */
 [data-app-theme="minimal-swiggy"] {
   --canvas-bg: #f4f5f7;
   --body-bg-image: none;
