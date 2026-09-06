@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { getLocalDateString } from "../utils/dateUtils";
 
 function CustomDatePicker({ selectedDate, onChange, minDate }) {
@@ -97,7 +98,7 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
       </div>
 
       {/* Month Calendar Modal */}
-      {showCalendarModal && (
+      {showCalendarModal && createPortal(
         <div style={styles.modalOverlay} onClick={() => setShowCalendarModal(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
@@ -140,7 +141,8 @@ function CustomDatePicker({ selectedDate, onChange, minDate }) {
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -237,15 +239,21 @@ const styles = {
   // Modal
   modalOverlay: {
     position: "fixed",
-    inset: 0,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100vw",
+    height: "100vh",
+    backgroundColor: "rgba(15, 23, 42, 0.5)",
     backdropFilter: "blur(8px)",
     WebkitBackdropFilter: "blur(8px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 1500,
+    zIndex: 10000005,
     padding: "16px",
+    touchAction: "none",
   },
   modalCard: {
     backgroundColor: "rgba(255, 255, 255, 0.92)",

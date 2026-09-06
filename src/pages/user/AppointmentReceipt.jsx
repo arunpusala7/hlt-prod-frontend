@@ -301,6 +301,7 @@ const styles = {
     width: "100%",
     maxWidth: "100%",
     maxHeight: "88vh",
+    flexShrink: 0,
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: "28px",
     borderTopRightRadius: "28px",

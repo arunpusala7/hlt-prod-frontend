@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import api from "../../api/api";
 import toast from "react-hot-toast"; 
 import { motion, AnimatePresence } from "framer-motion";
@@ -357,7 +358,7 @@ function MyAppointments() {
 
       {/* --- CANCEL BOTTOM SHEET (SLIDE UP 75%) --- */}
       <AnimatePresence>
-        {cancelModalOpen && (
+        {cancelModalOpen && createPortal(
           <div 
             style={styles.sheetOverlay} 
             onClick={() => setCancelModalOpen(false)}
@@ -421,13 +422,14 @@ function MyAppointments() {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 
       {/* --- RESCHEDULE BOTTOM SHEET (SLIDE UP 75% HEIGHT) --- */}
       <AnimatePresence>
-        {rescheduleModalOpen && (
+        {rescheduleModalOpen && createPortal(
           <div 
             style={styles.sheetOverlay} 
             onClick={() => setRescheduleModalOpen(false)}
@@ -446,20 +448,22 @@ function MyAppointments() {
                 <div style={styles.sheetDragPill}></div>
               </div>
 
-              <div style={styles.sheetBody}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
-                  <div>
-                    <h3 style={styles.modalTitle}>Reschedule Consultation ↻</h3>
-                    <p style={styles.modalSub}>Pick a new date and available slot. A new QR code & pass will be issued.</p>
-                  </div>
-                  <button 
-                    onClick={() => setRescheduleModalOpen(false)}
-                    style={{ background: "none", border: "none", fontSize: "18px", color: "#94A3B8", cursor: "pointer", padding: "4px" }}
-                    title="Close"
-                  >
-                    ✕
-                  </button>
+              <div style={styles.sheetTopNav}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "16px" }}>↻</span>
+                  <h3 style={styles.sheetTitle}>Reschedule Consultation</h3>
                 </div>
+                <button 
+                  onClick={() => setRescheduleModalOpen(false)} 
+                  style={styles.sheetCloseBtn}
+                  title="Close sheet"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={styles.sheetBody}>
+                <p style={styles.modalSub}>Pick a new date and available slot. A new QR code & pass will be issued.</p>
 
                 <CustomDatePicker
                   selectedDate={newDate}
@@ -507,56 +511,99 @@ function MyAppointments() {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 
-      {/* --- PRESCRIPTION MODAL --- */}
+      {/* --- PRESCRIPTION BOTTOM SHEET (SLIDE UP 75% HEIGHT) --- */}
       <AnimatePresence>
-        {prescriptionModalOpen && selectedPrescriptionAppt && (
+        {prescriptionModalOpen && selectedPrescriptionAppt && createPortal(
           <div 
-            style={styles.overlay} 
+            style={styles.sheetOverlay} 
             onClick={() => setPrescriptionModalOpen(false)}
             onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
           >
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              exit={{ scale: 0.95, opacity: 0 }}
-              style={styles.modal} 
+              initial={{ y: "100%" }} 
+              animate={{ y: 0 }} 
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              style={styles.bottomSheetRx} 
               onClick={e => e.stopPropagation()}
             >
-              <div ref={prescriptionRef} style={styles.rxContainer}>
-                <div style={styles.rxHeader}>
-                  <h3 style={{ margin: 0, color: '#3B82F6', fontSize: '18px', fontWeight: '800' }}>HealthConnect Rx</h3>
-                  <span style={{ fontSize: '12px', color: '#64748B' }}>Digital Medical Prescription</span>
+              {/* Drag Handle */}
+              <div style={styles.sheetHandleRow} onClick={() => setPrescriptionModalOpen(false)}>
+                <div style={styles.sheetDragPill}></div>
+              </div>
+
+              {/* Sheet Top Nav */}
+              <div style={styles.sheetTopNav}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "16px" }}>📄</span>
+                  <h3 style={styles.sheetTitle}>Digital Medical Prescription</h3>
                 </div>
-                <hr style={{ border: 0, borderTop: '1px solid #E2E8F0', margin: '14px 0' }} />
-                
-                <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
-                  <p><strong>Doctor:</strong> {formatDoctorName(selectedPrescriptionAppt.doctorName)}</p>
-                  <p><strong>Consultation for:</strong> {selectedPrescriptionAppt.userName || "Alex"}</p>
-                  <p><strong>Date:</strong> {selectedPrescriptionAppt.date}</p>
-                  <p><strong>Ticket ID:</strong> {selectedPrescriptionAppt.ticketId}</p>
-                  <div style={{ marginTop: '14px', padding: '14px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-                    <p style={{ fontWeight: '700', marginBottom: '6px', color: '#0F172A' }}>Clinical Advice & Prescribed Medicines:</p>
-                    <p style={{ color: '#334155', fontStyle: 'italic', margin: 0 }}>
-                      "{selectedPrescriptionAppt.prescription || "Standard recovery instructions provided during consultation."}"
-                    </p>
+                <button 
+                  onClick={() => setPrescriptionModalOpen(false)} 
+                  style={styles.sheetCloseBtn}
+                  title="Close sheet"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={styles.sheetBody}>
+                <div ref={prescriptionRef} style={styles.rxContainer}>
+                  <div style={styles.rxHeader}>
+                    <div>
+                      <h3 style={{ margin: 0, color: '#2563EB', fontSize: '18px', fontWeight: '800' }}>HealthConnect Rx</h3>
+                      <span style={{ fontSize: '12px', color: '#64748B' }}>Verified Digital Medical Prescription</span>
+                    </div>
+                    <span style={{ padding: "4px 10px", backgroundColor: "#EFF6FF", color: "#2563EB", borderRadius: "9999px", fontSize: "11px", fontWeight: "700" }}>
+                      AUTHENTICATED
+                    </span>
+                  </div>
+                  <hr style={{ border: 0, borderTop: '1px solid #E2E8F0', margin: '14px 0' }} />
+                  
+                  <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                      <span style={{ color: "#64748B" }}>Doctor:</span>
+                      <strong style={{ color: "#0F172A" }}>{formatDoctorName(selectedPrescriptionAppt.doctorName)}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                      <span style={{ color: "#64748B" }}>Consultation for:</span>
+                      <strong style={{ color: "#0F172A" }}>{selectedPrescriptionAppt.userName || localStorage.getItem("userName") || "Alex"}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                      <span style={{ color: "#64748B" }}>Date:</span>
+                      <strong style={{ color: "#0F172A" }}>{selectedPrescriptionAppt.date}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
+                      <span style={{ color: "#64748B" }}>Ticket ID:</span>
+                      <span style={{ fontFamily: "monospace", color: "#2563EB", fontWeight: "700" }}>{selectedPrescriptionAppt.ticketId}</span>
+                    </div>
+
+                    <div style={{ marginTop: '14px', padding: '14px', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+                      <p style={{ fontWeight: '700', marginBottom: '6px', color: '#0F172A', fontSize: "12.5px" }}>Clinical Advice & Prescribed Medicines:</p>
+                      <p style={{ color: '#334155', fontStyle: 'italic', margin: 0, lineHeight: 1.6 }}>
+                        "{selectedPrescriptionAppt.prescription || "Standard recovery instructions provided during consultation."}"
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div style={styles.modalBtns}>
-                <button onClick={downloadPDF} style={styles.modalConfirmPill}>
-                  📥 Download PDF Rx
-                </button>
+              <div style={styles.sheetStickyBottom}>
                 <button onClick={() => setPrescriptionModalOpen(false)} style={styles.modalCancelPill}>
                   Close
                 </button>
+                <button onClick={downloadPDF} style={styles.modalConfirmPill}>
+                  📥 Download PDF Rx
+                </button>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 
@@ -816,15 +863,20 @@ const styles = {
   },
   sheetOverlay: {
     position: "fixed",
-    inset: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100vw",
+    height: "100vh",
     backgroundColor: "rgba(15, 23, 42, 0.6)",
     backdropFilter: "blur(6px)",
     WebkitBackdropFilter: "blur(6px)",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-end",
-    alignItems: "center",
-    zIndex: 2000,
+    alignItems: "stretch",
+    zIndex: 999999,
     touchAction: "none",
     userSelect: "none",
   },
@@ -832,9 +884,10 @@ const styles = {
     backgroundColor: "#FFFFFF",
     borderRadius: "28px 28px 0 0",
     width: "100%",
-    maxWidth: "520px",
+    maxWidth: "100%",
     height: "75vh",
     maxHeight: "75vh",
+    flexShrink: 0,
     display: "flex",
     flexDirection: "column",
     boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.22)",
@@ -846,14 +899,59 @@ const styles = {
     backgroundColor: "#FFFFFF",
     borderRadius: "28px 28px 0 0",
     width: "100%",
-    maxWidth: "520px",
+    maxWidth: "100%",
     maxHeight: "75vh",
+    flexShrink: 0,
     display: "flex",
     flexDirection: "column",
     boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.22)",
     border: "1px solid rgba(226, 232, 240, 0.95)",
     borderBottom: "none",
     overflow: "hidden",
+  },
+  bottomSheetRx: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "28px 28px 0 0",
+    width: "100%",
+    maxWidth: "100%",
+    height: "75vh",
+    maxHeight: "75vh",
+    flexShrink: 0,
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.22)",
+    border: "1px solid rgba(226, 232, 240, 0.95)",
+    borderBottom: "none",
+    overflow: "hidden",
+  },
+  sheetTopNav: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "6px 20px 12px",
+    borderBottom: "1px solid #F1F5F9",
+    backgroundColor: "#FFFFFF",
+    flexShrink: 0,
+  },
+  sheetTitle: {
+    margin: 0,
+    fontSize: "16px",
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  sheetCloseBtn: {
+    width: "32px",
+    height: "32px",
+    borderRadius: "50%",
+    backgroundColor: "#F1F5F9",
+    border: "1px solid #E2E8F0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    color: "#64748B",
+    fontSize: "14px",
+    fontWeight: "700",
   },
   sheetHandleRow: {
     width: "100%",

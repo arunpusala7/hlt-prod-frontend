@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import api from "../../api/api";
 import { jwtDecode } from "jwt-decode";
 import { motion, AnimatePresence } from "framer-motion";
@@ -621,7 +622,7 @@ function UserProfile() {
 
       {/* Large Scannable Digital ID Pass Modal */}
       <AnimatePresence>
-        {showQrModal && (
+        {showQrModal && createPortal(
           <div style={styles.modalBackdrop} onClick={() => setShowQrModal(false)}>
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
@@ -661,7 +662,8 @@ function UserProfile() {
                 Done
               </button>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
     </div>
@@ -1227,13 +1229,17 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
+    width: "100vw",
+    height: "100vh",
     backgroundColor: "rgba(15, 23, 42, 0.65)",
     backdropFilter: "blur(8px)",
+    WebkitBackdropFilter: "blur(8px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 10000,
+    zIndex: 9999999,
     padding: "16px",
+    touchAction: "none",
   },
   qrModalCard: {
     backgroundColor: "#FFFFFF",

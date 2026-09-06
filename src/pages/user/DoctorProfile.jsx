@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/api";
 import toast from "react-hot-toast";
@@ -400,7 +401,7 @@ function DoctorProfile() {
         </div>
         {/* Custom Calendar Bottom Sheet */}
         <AnimatePresence>
-          {showCustomCalendar && (
+          {showCustomCalendar && createPortal(
             <div 
               style={styles.calendarModalOverlay} 
               onClick={() => setShowCustomCalendar(false)}
@@ -535,7 +536,8 @@ function DoctorProfile() {
                   </div>
                 </div>
               </motion.div>
-            </div>
+            </div>,
+            document.body
           )}
         </AnimatePresence>
       </div>
@@ -725,14 +727,17 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
+    width: "100vw",
+    height: "100vh",
     backgroundColor: "rgba(15, 23, 42, 0.6)",
     backdropFilter: "blur(6px)",
     WebkitBackdropFilter: "blur(6px)",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-end",
-    alignItems: "center",
-    zIndex: 100005,
+    alignItems: "stretch",
+    zIndex: 999999,
+    touchAction: "none",
   },
   calendarModalCard: {
     backgroundColor: "#FFFFFF",
@@ -741,8 +746,9 @@ const styles = {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     width: "100%",
-    maxWidth: "480px",
+    maxWidth: "100%",
     maxHeight: "85vh",
+    flexShrink: 0,
     display: "flex",
     flexDirection: "column",
     boxShadow: "0 -16px 48px -4px rgba(15, 23, 42, 0.18)",
