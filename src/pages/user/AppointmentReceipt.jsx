@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -172,7 +173,7 @@ const AppointmentReceipt = ({ appointment, onClose }) => {
     }
   };
 
-  return (
+  return createPortal(
     <div 
       style={styles.sheetOverlay} 
       onClick={onClose}
@@ -275,7 +276,8 @@ const AppointmentReceipt = ({ appointment, onClose }) => {
           </button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -283,19 +285,21 @@ const styles = {
   sheetOverlay: {
     position: "fixed",
     inset: 0,
+    width: "100vw",
+    height: "100vh",
     backgroundColor: "rgba(15, 23, 42, 0.55)",
     backdropFilter: "blur(6px)",
     WebkitBackdropFilter: "blur(6px)",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-end",
-    alignItems: "center",
-    zIndex: 100000,
+    alignItems: "stretch",
+    zIndex: 9999999,
     touchAction: "none",
   },
   bottomSheet: {
     width: "100%",
-    maxWidth: "460px",
+    maxWidth: "100%",
     maxHeight: "88vh",
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: "28px",

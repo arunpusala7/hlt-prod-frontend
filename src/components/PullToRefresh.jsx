@@ -281,10 +281,9 @@ export default function PullToRefresh({ onRefresh, children, pullThreshold = 65 
       {/* Content wrapper with smooth spring bounce during pull */}
       <div
         style={{
-          transform: `translateY(${isRefreshing ? 50 : pullY > 0 ? pullY * 0.38 : 0}px)`,
-          transition:
-            isRefreshing || pullY === 0 ? "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
-          willChange: "transform",
+          transform: isRefreshing ? "translateY(50px)" : pullY > 0 ? `translateY(${pullY * 0.38}px)` : undefined,
+          transition: isRefreshing || pullY === 0 ? "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)" : undefined,
+          willChange: pullY > 0 || isRefreshing ? "transform" : undefined,
         }}
       >
         {children}

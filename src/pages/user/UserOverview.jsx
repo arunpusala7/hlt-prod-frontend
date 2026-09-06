@@ -7,7 +7,7 @@ import { formatDoctorName } from "../../utils/formatDoctorName";
 import AppointmentReceipt from "./AppointmentReceipt";
 import CancelReasonDropdown from "../../components/CancelReasonDropdown";
 import { getLocalDateString } from "../../utils/dateUtils";
-import PullToRefresh from "../../components/PullToRefresh";
+import { createPortal } from "react-dom";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -1073,7 +1073,7 @@ function UserOverview({
           IN-PAGE MODAL 1: DOCTOR DETAILS & BOOKING (Screen 3 Matching Design)
           ===================================================================== */}
       <AnimatePresence>
-        {bookingDoctor && (
+        {bookingDoctor && createPortal(
           <motion.div 
             className="swiggy-sheet-backdrop"
             style={styles.bottomSheetBackdrop}
@@ -1314,7 +1314,8 @@ function UserOverview({
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </motion.div>,
+          document.body
         )}
       </AnimatePresence>
 
@@ -1322,7 +1323,7 @@ function UserOverview({
           CUSTOM CALENDAR BOTTOM SHEET (Smooth, Clean & Modern)
           ===================================================================== */}
       <AnimatePresence>
-        {showCustomCalendar && (
+        {showCustomCalendar && createPortal(
           <div 
             style={styles.calendarModalOverlay} 
             onClick={() => setShowCustomCalendar(false)}
@@ -1458,7 +1459,8 @@ function UserOverview({
                 </div>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 
@@ -1478,7 +1480,7 @@ function UserOverview({
           IN-PAGE MODAL 3: IN-CONTEXT CANCELLATION CONFIRMATION (75% BOTTOM SHEET)
           ===================================================================== */}
       <AnimatePresence>
-        {cancellingAppt && (
+        {cancellingAppt && createPortal(
           <div 
             style={styles.sheetOverlay} 
             onClick={() => setCancellingAppt(null)}
@@ -1551,7 +1553,8 @@ function UserOverview({
                 </button>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 
@@ -1559,7 +1562,7 @@ function UserOverview({
           IN-PAGE MODAL 4: IN-CONTEXT RESCHEDULE (75% BOTTOM SHEET)
           ===================================================================== */}
       <AnimatePresence>
-        {reschedulingAppt && (
+        {reschedulingAppt && createPortal(
           <div 
             style={styles.sheetOverlay} 
             onClick={() => setReschedulingAppt(null)}
@@ -1578,15 +1581,37 @@ function UserOverview({
                 <div style={styles.sheetDragPill}></div>
               </div>
 
+              <div style={styles.sheetTopNav}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "16px" }}>↻</span>
+                  <h3 style={styles.sheetTitle}>Reschedule Consultation</h3>
+                </div>
+                <button 
+                  onClick={() => setReschedulingAppt(null)} 
+                  style={styles.sheetCloseBtn}
+                  title="Close sheet"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+
               <div style={styles.sheetBody}>
-                {/* Header */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
+                {/* Doctor Mini Profile */}
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px", backgroundColor: "#F8FAFC", borderRadius: "16px", border: "1px solid #E2E8F0", marginBottom: "16px" }}>
+                  <img
+                    src={getDoctorPortrait(reschedulingAppt.doctorId, reschedulingAppt.doctorName)}
+                    alt={reschedulingAppt.doctorName}
+                    style={{ width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover", border: "2px solid #FFFFFF" }}
+                  />
                   <div>
-                    <h3 style={{ margin: "0 0 4px 0", fontSize: "18px", fontWeight: "800", color: "#0F172A" }}>
-                      Reschedule Consultation ↻
-                    </h3>
+                    <h4 style={{ margin: "0 0 2px 0", fontSize: "14px", fontWeight: "700", color: "#0F172A" }}>
+                      {formatDoctorName(reschedulingAppt.doctorName)}
+                    </h4>
                     <p style={{ margin: 0, fontSize: "12px", color: "#64748B" }}>
-                      With {formatDoctorName(reschedulingAppt.doctorName)}. A new QR pass will be issued.
+                      {reschedulingAppt.specialization || "Specialist"} &bull; A new QR pass will be issued.
                     </p>
                   </div>
                   <button 
@@ -1672,7 +1697,8 @@ function UserOverview({
                 </button>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
     </div>
@@ -2259,14 +2285,16 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
+    width: "100vw",
+    height: "100vh",
     backgroundColor: "rgba(15, 23, 42, 0.6)",
     backdropFilter: "blur(6px)",
     WebkitBackdropFilter: "blur(6px)",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-end",
-    alignItems: "center",
-    zIndex: 9999,
+    alignItems: "stretch",
+    zIndex: 999999,
     touchAction: "none",
   },
   swiggyBookingSheet: {
@@ -2276,7 +2304,7 @@ const styles = {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     width: "100%",
-    maxWidth: "520px",
+    maxWidth: "100%",
     height: "75vh",
     maxHeight: "75vh",
     display: "flex",
@@ -2570,14 +2598,17 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
+    width: "100vw",
+    height: "100vh",
     backgroundColor: "rgba(15, 23, 42, 0.6)",
     backdropFilter: "blur(6px)",
     WebkitBackdropFilter: "blur(6px)",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-end",
-    alignItems: "center",
-    zIndex: 100005,
+    alignItems: "stretch",
+    zIndex: 1000005,
+    touchAction: "none",
   },
   calendarModalCard: {
     backgroundColor: "#FFFFFF",
@@ -2586,7 +2617,7 @@ const styles = {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     width: "100%",
-    maxWidth: "500px",
+    maxWidth: "100%",
     maxHeight: "85vh",
     display: "flex",
     flexDirection: "column",
@@ -2996,11 +3027,29 @@ const styles = {
     cursor: "pointer",
     boxShadow: "0 4px 12px rgba(239, 68, 68, 0.3)",
   },
+  sheetOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100vw",
+    height: "100vh",
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-end",
+    alignItems: "stretch",
+    zIndex: 999999,
+    touchAction: "none",
+  },
   cancelBottomSheet: {
     backgroundColor: "#FFFFFF",
     borderRadius: "28px 28px 0 0",
     width: "100%",
-    maxWidth: "500px",
+    maxWidth: "100%",
     maxHeight: "75vh",
     display: "flex",
     flexDirection: "column",
@@ -3013,7 +3062,7 @@ const styles = {
     backgroundColor: "#FFFFFF",
     borderRadius: "28px 28px 0 0",
     width: "100%",
-    maxWidth: "500px",
+    maxWidth: "100%",
     height: "75vh",
     maxHeight: "75vh",
     display: "flex",
