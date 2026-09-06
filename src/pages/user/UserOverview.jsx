@@ -769,8 +769,7 @@ function UserOverview({
   const groupedBookingSlots = groupSlots(bookingSlots);
 
   return (
-    <PullToRefresh onRefresh={handleRefreshData}>
-      <div style={isPhoneMode ? styles.phoneContainer : styles.fluidContainer}>
+    <div style={isPhoneMode ? styles.phoneContainer : styles.fluidContainer}>
         {/* Top Header Row - Fixed Greeting & Notification Header */}
         <div className="fixed-greeting-header" style={styles.greetingRow}>
           <div style={styles.userBio}>
@@ -1677,8 +1676,7 @@ function UserOverview({
         )}
       </AnimatePresence>
     </div>
-  </PullToRefresh>
-);
+  );
 }
 
 const styles = {

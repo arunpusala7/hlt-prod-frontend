@@ -1,65 +1,113 @@
 import React, { useState, useEffect, useRef } from "react";
 
-export default function PullToRefresh({ onRefresh, children, pullThreshold = 70 }) {
+export default function PullToRefresh({ onRefresh, children, pullThreshold = 65 }) {
   const [pullY, setPullY] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isReadyToRefresh, setIsReadyToRefresh] = useState(false);
   const [refreshSuccess, setRefreshSuccess] = useState(false);
 
-  useEffect(() => {
-    let startY = 0;
-    let isTracking = false;
+  // Persistent gesture tracking refs that never get wiped during renders
+  const startYRef = useRef(0);
+  const startXRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const isRefreshingRef = useRef(false);
+  const currentPullRef = useRef(0);
+  const onRefreshRef = useRef(onRefresh);
 
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
+
+  useEffect(() => {
+    const getScrollTop = () => {
+      return (
+        window.pageYOffset ||
+        document.documentElement.scrollTop ||
+        document.body.scrollTop ||
+        0
+      );
+    };
+
+    // --- TOUCH HANDLERS ---
     const handleTouchStart = (e) => {
-      if (window.scrollY <= 2 && !isRefreshing) {
-        startY = e.touches[0].clientY;
-        isTracking = true;
+      if (isRefreshingRef.current) return;
+      if (getScrollTop() <= 4) {
+        startYRef.current = e.touches[0].clientY;
+        startXRef.current = e.touches[0].clientX;
+        isDraggingRef.current = true;
+        currentPullRef.current = 0;
       } else {
-        isTracking = false;
+        isDraggingRef.current = false;
       }
     };
 
     const handleTouchMove = (e) => {
-      if (!isTracking || isRefreshing) return;
-      const currentY = e.touches[0].clientY;
-      const diff = currentY - startY;
+      if (!isDraggingRef.current || isRefreshingRef.current) return;
 
-      if (diff > 0 && window.scrollY <= 0) {
-        const damped = Math.min(Math.pow(diff, 0.82) * 1.4, 90);
+      const currentY = e.touches[0].clientY;
+      const currentX = e.touches[0].clientX;
+      const diffY = currentY - startYRef.current;
+      const diffX = currentX - startXRef.current;
+
+      // Cancel if user is scrolled down
+      if (getScrollTop() > 5) {
+        isDraggingRef.current = false;
+        if (currentPullRef.current > 0) {
+          currentPullRef.current = 0;
+          setPullY(0);
+          setIsReadyToRefresh(false);
+        }
+        return;
+      }
+
+      // If horizontal gesture is more prominent, let horizontal swipe work (e.g. tabs, category pills)
+      if (Math.abs(diffX) > Math.abs(diffY) && diffY < 25) {
+        return;
+      }
+
+      if (diffY > 0) {
+        // Ergonomic spring damping
+        const damped = Math.min(Math.pow(diffY, 0.8) * 1.5, 95);
+        currentPullRef.current = damped;
         setPullY(damped);
         setIsReadyToRefresh(damped >= pullThreshold);
 
-        if (e.cancelable && diff > 8) {
+        if (e.cancelable && diffY > 8) {
           e.preventDefault();
         }
-      } else if (diff < 0) {
+      } else {
+        currentPullRef.current = 0;
         setPullY(0);
         setIsReadyToRefresh(false);
       }
     };
 
     const handleTouchEnd = async () => {
-      if (!isTracking || isRefreshing) return;
-      isTracking = false;
+      if (!isDraggingRef.current || isRefreshingRef.current) return;
+      isDraggingRef.current = false;
 
-      if (pullY >= pullThreshold) {
+      const shouldTrigger = currentPullRef.current >= pullThreshold;
+      currentPullRef.current = 0;
+
+      if (shouldTrigger) {
+        isRefreshingRef.current = true;
         setIsRefreshing(true);
         setPullY(54);
 
         try {
-          if (onRefresh) {
-            await Promise.all([
-              onRefresh(),
-              new Promise((res) => setTimeout(res, 600))
-            ]);
+          if (onRefreshRef.current) {
+            await onRefreshRef.current();
           } else {
-            await new Promise((res) => setTimeout(res, 600));
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            window.location.reload();
+            return;
           }
           setRefreshSuccess(true);
-          await new Promise((res) => setTimeout(res, 400));
+          await new Promise((res) => setTimeout(res, 500));
         } catch (err) {
-          console.error("Refresh error:", err);
+          console.error("Pull to refresh error:", err);
         } finally {
+          isRefreshingRef.current = false;
           setIsRefreshing(false);
           setIsReadyToRefresh(false);
           setRefreshSuccess(false);
@@ -71,16 +119,64 @@ export default function PullToRefresh({ onRefresh, children, pullThreshold = 70 
       }
     };
 
+    // --- MOUSE HANDLERS (for desktop / laptop touchpad & mouse testing) ---
+    const handleMouseDown = (e) => {
+      if (isRefreshingRef.current || e.button !== 0) return;
+      if (getScrollTop() <= 4) {
+        startYRef.current = e.clientY;
+        startXRef.current = e.clientX;
+        isDraggingRef.current = true;
+        currentPullRef.current = 0;
+      }
+    };
+
+    const handleMouseMove = (e) => {
+      if (!isDraggingRef.current || isRefreshingRef.current) return;
+
+      const diffY = e.clientY - startYRef.current;
+      if (getScrollTop() > 5) {
+        isDraggingRef.current = false;
+        setPullY(0);
+        setIsReadyToRefresh(false);
+        return;
+      }
+
+      if (diffY > 0) {
+        const damped = Math.min(Math.pow(diffY, 0.8) * 1.5, 95);
+        currentPullRef.current = damped;
+        setPullY(damped);
+        setIsReadyToRefresh(damped >= pullThreshold);
+      } else {
+        currentPullRef.current = 0;
+        setPullY(0);
+        setIsReadyToRefresh(false);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        handleTouchEnd();
+      }
+    };
+
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
     window.addEventListener("touchmove", handleTouchMove, { passive: false });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
+
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
 
     return () => {
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
+
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isRefreshing, pullY, pullThreshold, onRefresh]);
+  }, [pullThreshold]);
 
   const progress = Math.min(pullY / pullThreshold, 1);
   const rotationAngle = isRefreshing ? 0 : progress * 180;
@@ -93,11 +189,14 @@ export default function PullToRefresh({ onRefresh, children, pullThreshold = 70 
           position: "fixed",
           top: "16px",
           left: "50%",
-          transform: `translateX(-50%) translateY(${pullY > 0 || isRefreshing ? Math.min(pullY, 65) : -70}px)`,
-          transition: isRefreshing || pullY === 0 ? "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease" : "none",
-          zIndex: 9999,
+          transform: `translateX(-50%) translateY(${pullY > 0 || isRefreshing ? Math.min(pullY, 65) : -80}px)`,
+          transition:
+            isRefreshing || pullY === 0
+              ? "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease"
+              : "none",
+          zIndex: 99999,
           pointerEvents: "none",
-          opacity: pullY > 10 || isRefreshing ? 1 : 0,
+          opacity: pullY > 8 || isRefreshing ? 1 : 0,
         }}
       >
         <div
@@ -106,9 +205,10 @@ export default function PullToRefresh({ onRefresh, children, pullThreshold = 70 
             alignItems: "center",
             gap: "8px",
             backgroundColor: "#FFFFFF",
-            padding: "8px 16px",
+            padding: "8px 18px",
             borderRadius: "9999px",
-            boxShadow: "0 10px 25px -4px rgba(15, 23, 42, 0.15), 0 4px 10px -2px rgba(15, 23, 42, 0.08)",
+            boxShadow:
+              "0 12px 28px -4px rgba(15, 23, 42, 0.18), 0 4px 10px -2px rgba(15, 23, 42, 0.08)",
             border: "1px solid #E2E8F0",
             color: isReadyToRefresh || isRefreshing ? "#2563EB" : "#475569",
             fontWeight: "600",
@@ -117,10 +217,19 @@ export default function PullToRefresh({ onRefresh, children, pullThreshold = 70 
         >
           {refreshSuccess ? (
             <>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#16A34A"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
-              <span style={{ color: "#16A34A" }}>Updated!</span>
+              <span style={{ color: "#16A34A" }}>Refreshed!</span>
             </>
           ) : isRefreshing ? (
             <>
@@ -135,7 +244,7 @@ export default function PullToRefresh({ onRefresh, children, pullThreshold = 70 
               >
                 <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
               </svg>
-              <span>Refreshing...</span>
+              <span>Refreshing page...</span>
             </>
           ) : (
             <>
@@ -150,7 +259,7 @@ export default function PullToRefresh({ onRefresh, children, pullThreshold = 70 
                 strokeLinejoin="round"
                 style={{
                   transform: `rotate(${rotationAngle}deg)`,
-                  transition: "transform 0.15s ease",
+                  transition: "transform 0.12s ease",
                 }}
               >
                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -172,8 +281,9 @@ export default function PullToRefresh({ onRefresh, children, pullThreshold = 70 
       {/* Content wrapper with smooth spring bounce during pull */}
       <div
         style={{
-          transform: `translateY(${isRefreshing ? 48 : pullY > 0 ? pullY * 0.35 : 0}px)`,
-          transition: isRefreshing || pullY === 0 ? "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
+          transform: `translateY(${isRefreshing ? 50 : pullY > 0 ? pullY * 0.38 : 0}px)`,
+          transition:
+            isRefreshing || pullY === 0 ? "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
           willChange: "transform",
         }}
       >

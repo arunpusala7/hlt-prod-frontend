@@ -6,10 +6,19 @@ import UserOverview from "./UserOverview";
 import BookAppointment from "./BookAppointment";
 import MyAppointments from "./MyAppointments";
 import UserProfile from "./UserProfile";
+import PullToRefresh from "../../components/PullToRefresh";
 
 function UserDashboard() {
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(location.state?.activeTab || "overview");
+  const [activeTab, setActiveTabState] = useState(() => {
+    return location.state?.activeTab || sessionStorage.getItem("userActiveTab") || "overview";
+  });
+
+  const setActiveTab = (tab) => {
+    sessionStorage.setItem("userActiveTab", tab);
+    setActiveTabState(tab);
+  };
+
   const [selectedDoctorId, setSelectedDoctorId] = useState(location.state?.selectedDoctorId || null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [userName, setUserName] = useState(localStorage.getItem("userName") || "Alex");
@@ -183,54 +192,56 @@ function UserDashboard() {
         </div>
       </header>
 
-      {/* Main Content Layout Container */}
-      <main className="user-main-container" style={styles.mainContainer}>
-        <AnimatePresence mode="wait">
-          {(activeTab === "overview" || activeTab === "book") && (
-            <motion.div 
-              key="overview"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              style={{ width: "100%" }}
-            >
-              <UserOverview 
-                setActiveTab={setActiveTab} 
-                isFindDoctorsActive={activeTab === "book"}
-                preSelectedDoctorId={selectedDoctorId}
-                onClearPreSelectedDoctor={() => setSelectedDoctorId(null)}
-              />
-            </motion.div>
-          )}
+      {/* Main Content Layout Container with Swipe-Down-To-Refresh */}
+      <PullToRefresh>
+        <main className="user-main-container" style={styles.mainContainer}>
+          <AnimatePresence mode="wait">
+            {(activeTab === "overview" || activeTab === "book") && (
+              <motion.div 
+                key="overview"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ width: "100%" }}
+              >
+                <UserOverview 
+                  setActiveTab={setActiveTab} 
+                  isFindDoctorsActive={activeTab === "book"}
+                  preSelectedDoctorId={selectedDoctorId}
+                  onClearPreSelectedDoctor={() => setSelectedDoctorId(null)}
+                />
+              </motion.div>
+            )}
 
-          {activeTab === "my-appointments" && (
-            <motion.div 
-              key="appointments"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              style={{ width: "100%" }}
-            >
-              <MyAppointments />
-            </motion.div>
-          )}
+            {activeTab === "my-appointments" && (
+              <motion.div 
+                key="appointments"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ width: "100%" }}
+              >
+                <MyAppointments />
+              </motion.div>
+            )}
 
-          {activeTab === "profile" && (
-            <motion.div 
-              key="profile"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              style={{ width: "100%" }}
-            >
-              <UserProfile />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
+            {activeTab === "profile" && (
+              <motion.div 
+                key="profile"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ width: "100%" }}
+              >
+                <UserProfile />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+      </PullToRefresh>
 
       {/* Mobile Floating Glassmorphism Bottom Navigation Pill */}
       <nav className="mobile-bottom-nav">
