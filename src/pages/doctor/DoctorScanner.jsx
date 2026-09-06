@@ -3,40 +3,116 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import api from "../../api/api";
 import toast from "react-hot-toast";
 
+export const extractTicketId = (scannedText) => {
+  if (!scannedText || typeof scannedText !== "string") return "";
+  let text = scannedText.trim();
+
+  // 1. Check if JSON format: { "ticketId": "..." }
+  if (text.startsWith("{") && text.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.ticketId) return String(parsed.ticketId).trim();
+      if (parsed.ticket_id) return String(parsed.ticket_id).trim();
+      if (parsed.id) return String(parsed.id).trim();
+    } catch (e) {}
+  }
+
+  // 2. Check if URL containing ticketId query param (e.g. https://healthconnect.app/verify?ticketId=HC-QPYJ7B-4848)
+  if (text.includes("ticketId=")) {
+    try {
+      const urlObj = new URL(text.startsWith("http") ? text : `https://${text}`);
+      const val = urlObj.searchParams.get("ticketId");
+      if (val) return val.trim();
+    } catch (e) {
+      const match = text.match(/ticketId=([a-zA-Z0-9_-]+)/i);
+      if (match && match[1]) return match[1].trim();
+    }
+  }
+
+  // 3. Check if URL path with ticket ID (e.g. https://healthconnect.app/verify/HC-...)
+  if (text.startsWith("http://") || text.startsWith("https://")) {
+    try {
+      const urlObj = new URL(text);
+      const segments = urlObj.pathname.split("/").filter(Boolean);
+      const lastSeg = segments[segments.length - 1];
+      if (lastSeg && (lastSeg.toUpperCase().startsWith("HC") || lastSeg.includes("-"))) {
+        return lastSeg.trim();
+      }
+    } catch (e) {}
+  }
+
+  // 4. Clean leading # if present
+  if (text.startsWith("#")) {
+    text = text.substring(1).trim();
+  }
+
+  return text;
+};
+
 function DoctorScanner() {
   const [scanResult, setScanResult] = useState(null);
   const [validationData, setValidationData] = useState(null);
   const [isScanning, setIsScanning] = useState(true);
+  const [manualTicket, setManualTicket] = useState("");
 
-  const handleScan = async (detectedCodes) => {
+  const performValidation = async (rawInput) => {
+    const ticketId = extractTicketId(rawInput);
+    if (!ticketId) {
+      toast.error("Invalid QR: No ticket ID found");
+      setIsScanning(true);
+      return;
+    }
+
+    setIsScanning(false);
+    setScanResult(ticketId);
+    toast.loading("Verifying ticket pass...", { id: "verify" });
+
+    try {
+      // Use query parameter so no URL slashes or protocols enter the request path
+      const res = await api.get("/api/validate", { params: { ticketId } });
+      const status = res.data?.status;
+
+      if (status === "VALID") {
+        toast.success("Patient verified!", { id: "verify" });
+        setValidationData({ ...res.data, status: "VALID" });
+      } else if (status === "WRONG_DOCTOR") {
+        toast.error("Wrong Doctor!", { id: "verify" });
+        setValidationData({
+          status: "WRONG_DOCTOR",
+          message: res.data?.message || "This ticket belongs to another doctor.",
+          doctorName: res.data?.doctorName,
+        });
+      } else {
+        toast.error("Invalid Ticket", { id: "verify" });
+        setValidationData({ 
+          status: "INVALID",
+          message: res.data?.message || "This ticket could not be validated in the HealthConnect records."
+        });
+      }
+    } catch (err) {
+      console.error("Verification error:", err);
+      // Fallback: try path variable with encodeURIComponent
+      try {
+        const res2 = await api.get(`/api/validate/${encodeURIComponent(ticketId)}`);
+        const status = res2.data?.status;
+        if (status === "VALID") {
+          toast.success("Patient verified!", { id: "verify" });
+          setValidationData({ ...res2.data, status: "VALID" });
+          return;
+        }
+      } catch (e2) {}
+
+      const errMsg = err.response?.data?.message || "Error connecting to verification server";
+      toast.error(errMsg, { id: "verify" });
+      setValidationData({ status: "INVALID", message: errMsg });
+    }
+  };
+
+  const handleScan = (detectedCodes) => {
     if (detectedCodes && detectedCodes.length > 0) {
       const rawValue = detectedCodes[0].rawValue;
       if (rawValue && isScanning) {
-        setIsScanning(false);
-        setScanResult(rawValue);
-        toast.loading("Verifying ticket pass...", { id: "verify" });
-
-        try {
-          const res = await api.get(`/api/validate/${rawValue}`);
-          const status = res.data.status;
-
-          if (status === "VALID") {
-            toast.success("Patient verified!", { id: "verify" });
-            setValidationData({ ...res.data, status: "VALID" });
-          } else if (status === "WRONG_DOCTOR") {
-            toast.error("Wrong Doctor!", { id: "verify" });
-            setValidationData({
-              status: "WRONG_DOCTOR",
-              message: res.data.message || "This ticket belongs to another doctor.",
-            });
-          } else {
-            toast.error("Invalid Ticket", { id: "verify" });
-            setValidationData({ status: "INVALID" });
-          }
-        } catch (err) {
-          toast.error("Error connecting to verification server", { id: "verify" });
-          setIsScanning(true);
-        }
+        performValidation(rawValue);
       }
     }
   };
@@ -44,6 +120,7 @@ function DoctorScanner() {
   const resetScanner = () => {
     setScanResult(null);
     setValidationData(null);
+    setManualTicket("");
     setIsScanning(true);
   };
 
@@ -70,6 +147,39 @@ function DoctorScanner() {
               <rect x="7" y="7" width="10" height="10" rx="1"></rect>
             </svg>
             <span>Position the patient QR pass within the viewfinder</span>
+          </div>
+
+          {/* Manual Entry Fallback */}
+          <div style={scannerStyles.manualSection}>
+            <div style={scannerStyles.dividerRow}>
+              <span style={scannerStyles.dividerLine}></span>
+              <span style={scannerStyles.dividerText}>OR ENTER TICKET ID</span>
+              <span style={scannerStyles.dividerLine}></span>
+            </div>
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (manualTicket.trim()) {
+                  performValidation(manualTicket.trim());
+                }
+              }}
+              style={scannerStyles.manualForm}
+            >
+              <input
+                type="text"
+                placeholder="e.g. HC-QPYJ7B-4848"
+                value={manualTicket}
+                onChange={(e) => setManualTicket(e.target.value)}
+                style={scannerStyles.manualInput}
+              />
+              <button 
+                type="submit" 
+                disabled={!manualTicket.trim()}
+                style={manualTicket.trim() ? scannerStyles.manualBtnActive : scannerStyles.manualBtnDisabled}
+              >
+                Verify ↗
+              </button>
+            </form>
           </div>
         </div>
       ) : (
@@ -219,6 +329,66 @@ const scannerStyles = {
     backgroundColor: "#F1F5F9",
     padding: "8px 14px",
     borderRadius: "20px",
+  },
+  manualSection: {
+    width: "100%",
+    marginTop: "2px",
+  },
+  dividerRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    margin: "10px 0 12px 0",
+  },
+  dividerLine: {
+    flex: 1,
+    height: "1px",
+    backgroundColor: "#E2E8F0",
+  },
+  dividerText: {
+    fontSize: "11px",
+    fontWeight: "700",
+    color: "#94A3B8",
+    letterSpacing: "0.04em",
+  },
+  manualForm: {
+    display: "flex",
+    gap: "8px",
+    width: "100%",
+  },
+  manualInput: {
+    flex: 1,
+    padding: "10px 14px",
+    borderRadius: "12px",
+    border: "1px solid #CBD5E1",
+    fontSize: "13px",
+    outline: "none",
+    backgroundColor: "#FFFFFF",
+    color: "#0F172A",
+    boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+  },
+  manualBtnActive: {
+    padding: "10px 18px",
+    borderRadius: "12px",
+    backgroundColor: "#3B82F6",
+    color: "#FFFFFF",
+    fontSize: "13px",
+    fontWeight: "700",
+    border: "none",
+    cursor: "pointer",
+    boxShadow: "0 2px 8px rgba(59, 130, 246, 0.35)",
+    whiteSpace: "nowrap",
+  },
+  manualBtnDisabled: {
+    padding: "10px 18px",
+    borderRadius: "12px",
+    backgroundColor: "#E2E8F0",
+    color: "#94A3B8",
+    fontSize: "13px",
+    fontWeight: "700",
+    border: "none",
+    cursor: "not-allowed",
+    whiteSpace: "nowrap",
   },
   resultCard: {
     width: "100%",
