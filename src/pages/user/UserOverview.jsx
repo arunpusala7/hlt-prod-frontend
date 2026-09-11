@@ -234,28 +234,62 @@ function UserOverview({
   });
 
   const [doctors, setDoctors] = useState(() => {
-    if (Array.isArray(cachedDoctorsList) && cachedDoctorsList.length > 0) return cachedDoctorsList;
+    // 1. If tenant doctors are already loaded synchronously via TenantContext
+    if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
+      return tenant.doctors;
+    }
+    // 2. Try tenant/domain scoped cache
     try {
-      const saved = localStorage.getItem("hc_cached_doctors");
+      const host = typeof window !== "undefined" ? window.location.host : "default";
+      const saved = localStorage.getItem(`hc_cached_doctors_${host}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
+    // Clean old global cache that had all 15 doctors
     try { localStorage.removeItem("hc_cached_doctors"); } catch {}
+
+    // 3. In-memory cache if valid
+    if (Array.isArray(cachedDoctorsList) && cachedDoctorsList.length > 0) return cachedDoctorsList;
+
+    // Never return fake DB_DOCTORS_INITIAL if on a custom tenant domain (like apollo.zuuuz.in)!
+    const isCustomDomain = typeof window !== "undefined" &&
+      !window.location.hostname.includes("localhost") &&
+      !window.location.hostname.includes("127.0.0.1") &&
+      window.location.hostname !== "healthconnect.zuuuz.in";
+
+    if (isCustomDomain) {
+      return [];
+    }
     return DB_DOCTORS_INITIAL;
   });
 
-  // Always guaranteed to be a valid array
+  // Always guaranteed to be a valid array scoped to the tenant
   const safeDoctors = useMemo(() => {
+    // Prioritize tenant's doctors on custom domain
+    if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
+      return tenant.doctors;
+    }
     if (Array.isArray(doctors) && doctors.length > 0) return doctors;
-    if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) return tenant.doctors;
+    const isCustomDomain = typeof window !== "undefined" &&
+      !window.location.hostname.includes("localhost") &&
+      !window.location.hostname.includes("127.0.0.1") &&
+      window.location.hostname !== "healthconnect.zuuuz.in";
+    if (isCustomDomain) {
+      return [];
+    }
     return DB_DOCTORS_INITIAL;
   }, [doctors, tenant]);
 
   useEffect(() => {
-    if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
+    if (tenant?.doctors && Array.isArray(tenant.doctors)) {
       setDoctors(tenant.doctors);
+      try {
+        const host = typeof window !== "undefined" ? window.location.host : "default";
+        localStorage.setItem(`hc_cached_doctors_${host}`, JSON.stringify(tenant.doctors));
+        cachedDoctorsList = tenant.doctors;
+      } catch {}
     }
   }, [tenant]);
 
@@ -455,10 +489,31 @@ function UserOverview({
 
   const fetchDoctorsList = async () => {
     try {
+      const isCustomTenant = tenant && tenant.tenantType !== "PLATFORM";
+      if (isCustomTenant) {
+        // Re-fetch tenant configuration to get scoped doctors for this tenant
+        const origin = window.location.origin;
+        let res;
+        try {
+          res = await api.get(`/api/v2/partner`, { params: { domain_eq: origin } });
+        } catch {
+          res = await api.get(`/api/public/tenant`, { params: { domain: origin } });
+        }
+        if (res?.data?.doctors && Array.isArray(res.data.doctors)) {
+          const host = typeof window !== "undefined" ? window.location.host : "default";
+          localStorage.setItem(`hc_cached_doctors_${host}`, JSON.stringify(res.data.doctors));
+          cachedDoctorsList = res.data.doctors;
+          setDoctors(res.data.doctors);
+          return;
+        }
+      }
+
+      // Default platform doctors
       const res = await api.get("/api/doctors");
       if (Array.isArray(res.data) && res.data.length > 0) {
+        const host = typeof window !== "undefined" ? window.location.host : "default";
         cachedDoctorsList = res.data;
-        localStorage.setItem("hc_cached_doctors", JSON.stringify(res.data));
+        localStorage.setItem(`hc_cached_doctors_${host}`, JSON.stringify(res.data));
         setDoctors(prev => {
           if (JSON.stringify(prev) === JSON.stringify(res.data)) return prev;
           return res.data;
@@ -1223,60 +1278,70 @@ function UserOverview({
 
         {/* Doctor Cards 2-Column Grid (Two Cards Horizontally Side by Side) */}
         <div ref={doctorListRef} className="doctor-cards-grid" style={styles.doctorGrid}>
-          {filteredDoctors.map((doc) => (
-            <motion.div
-              key={doc.id}
-              whileHover={{ y: -3 }}
-              whileTap={{ scale: 0.968 }}
-              className="doc-card tactile-card"
-              style={styles.docCard}
-              onClick={() => handleOpenBookingModal(doc)}
-            >
-              <div style={styles.docCardAvatar}>
-                <img 
-                  src={getDoctorPortrait(doc.id, doc.name)} 
-                  alt={doc.name} 
-                  style={styles.docCardImg} 
-                />
-              </div>
-              <div style={styles.docCardBody}>
-                <h4 style={styles.docCardName}>{formatDoctorName(doc.name)}</h4>
-                <span style={styles.docCardSpec}>{doc.specialization || "Specialist"}</span>
-                {(doc.clinic?.branchName || doc.clinicName || doc.hospitalAffiliation) && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "3px", fontSize: "11.5px", color: "#64748B" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                      <circle cx="12" cy="10" r="3"></circle>
-                    </svg>
-                    <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {doc.clinic?.branchName || doc.clinicName || doc.hospitalAffiliation}
-                    </span>
-                  </div>
-                )}
-                {doc.experienceYears && (
-                  <span style={styles.docCardExp}>{doc.experienceYears}</span>
-                )}
-                
-                <div style={styles.docCardBottomRow}>
-                  <span style={styles.docCardFee}>
-                    ₹{doc.consultationFee !== undefined ? doc.consultationFee : 500} 
-                    <span style={{ fontSize: "10px", color: "#94A3B8", fontWeight: "normal" }}> / visit</span>
-                  </span>
-                  <span style={styles.docRating}>⭐ 4.9</span>
+          {filteredDoctors.length > 0 ? (
+            filteredDoctors.map((doc) => (
+              <motion.div
+                key={doc.id}
+                whileHover={{ y: -3 }}
+                whileTap={{ scale: 0.968 }}
+                className="doc-card tactile-card"
+                style={styles.docCard}
+                onClick={() => handleOpenBookingModal(doc)}
+              >
+                <div style={styles.docCardAvatar}>
+                  <img 
+                    src={getDoctorPortrait(doc.id, doc.name)} 
+                    alt={doc.name} 
+                    style={styles.docCardImg} 
+                  />
                 </div>
+                <div style={styles.docCardBody}>
+                  <h4 style={styles.docCardName}>{formatDoctorName(doc.name)}</h4>
+                  <span style={styles.docCardSpec}>{doc.specialization || "Specialist"}</span>
+                  {(doc.clinic?.branchName || doc.clinicName || doc.hospitalAffiliation) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "3px", fontSize: "11.5px", color: "#64748B" }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                      </svg>
+                      <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {doc.clinic?.branchName || doc.clinicName || doc.hospitalAffiliation}
+                      </span>
+                    </div>
+                  )}
+                  {doc.experienceYears && (
+                    <span style={styles.docCardExp}>{doc.experienceYears}</span>
+                  )}
+                  
+                  <div style={styles.docCardBottomRow}>
+                    <span style={styles.docCardFee}>
+                      ₹{doc.consultationFee !== undefined ? doc.consultationFee : 500} 
+                      <span style={{ fontSize: "10px", color: "#94A3B8", fontWeight: "normal" }}> / visit</span>
+                    </span>
+                    <span style={styles.docRating}>⭐ 4.9</span>
+                  </div>
 
-                <button
-                  style={styles.docCardBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenBookingModal(doc);
-                  }}
-                >
-                  Book Appointment
-                </button>
-              </div>
-            </motion.div>
-          ))}
+                  <button
+                    style={styles.docCardBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenBookingModal(doc);
+                    }}
+                  >
+                    Book Appointment
+                  </button>
+                </div>
+              </motion.div>
+            ))
+          ) : (
+            <div style={{ gridColumn: "1 / -1", padding: "40px 20px", textAlign: "center", background: "var(--card-bg, #FFFFFF)", borderRadius: "16px", border: "1px solid #E2E8F0" }}>
+              <div style={{ fontSize: "32px", marginBottom: "8px" }}>🩺</div>
+              <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#1E293B", margin: "0 0 4px 0" }}>No Doctors Found</h4>
+              <p style={{ fontSize: "13px", color: "#64748B", margin: 0 }}>
+                {selectedOutlet ? "No specialists are currently assigned to this branch." : "No specialists found matching your search."}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

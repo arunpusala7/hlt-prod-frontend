@@ -3,9 +3,35 @@ import api from "../api/api";
 
 const TenantContext = createContext(null);
 
+const getInitialTenant = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const host = window.location.host;
+    const cached = localStorage.getItem(`hc_tenant_${host}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch {}
+  return null;
+};
+
 export function TenantProvider({ children }) {
-  const [tenant, setTenant] = useState(null);
-  const [loadingTenant, setLoadingTenant] = useState(true);
+  const [tenant, setTenant] = useState(getInitialTenant);
+  const [loadingTenant, setLoadingTenant] = useState(() => !getInitialTenant());
+
+  useEffect(() => {
+    // Immediate title/favicon application from cached tenant
+    if (tenant?.name) {
+      document.title = `${tenant.name} | Modern Healthcare Portal`;
+    }
+    if (tenant?.logoUrl) {
+      const existingFavicon = document.querySelector("link[rel*='icon']");
+      if (existingFavicon) {
+        existingFavicon.href = tenant.logoUrl;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const bootstrapTenant = async () => {
@@ -22,6 +48,9 @@ export function TenantProvider({ children }) {
 
         if (res && res.data) {
           setTenant(res.data);
+          try {
+            localStorage.setItem(`hc_tenant_${window.location.host}`, JSON.stringify(res.data));
+          } catch {}
           // Set page title and favicon if provided
           if (res.data.name) {
             document.title = `${res.data.name} | Modern Healthcare Portal`;

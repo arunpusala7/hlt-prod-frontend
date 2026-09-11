@@ -30,7 +30,12 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
   const [direction, setDirection] = useState(1);
 
   // Data State
-  const [doctors, setDoctors] = useState([]);
+  const [doctors, setDoctors] = useState(() => {
+    if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
+      return tenant.doctors;
+    }
+    return [];
+  });
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
@@ -60,6 +65,15 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
 
   // Load Doctors
   useEffect(() => {
+    if (tenant && tenant.tenantType !== "PLATFORM" && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
+      setDoctors(tenant.doctors);
+      if (preSelectedDoctorId) {
+        const match = tenant.doctors.find(d => String(d.id) === String(preSelectedDoctorId));
+        if (match) handleDoctorSelect(match);
+      }
+      return;
+    }
+
     api.get("/api/doctors")
       .then(res => {
         const fetchedDocs = Array.isArray(res.data) ? res.data : (Array.isArray(tenant?.doctors) ? tenant.doctors : []);
