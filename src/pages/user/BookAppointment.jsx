@@ -8,6 +8,7 @@ import CustomDatePicker from "../../components/CustomDatePicker";
 import { formatDoctorName } from "../../utils/formatDoctorName";
 import { getDoctorPortrait, getSpecialtyIcon } from "../../utils/doctorAvatars";
 import { getLocalDateString } from "../../utils/dateUtils";
+import { useTenant } from "../../context/TenantContext";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -23,6 +24,7 @@ const loadRazorpayScript = () => {
 };
 
 function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
+  const { tenant } = useTenant();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
@@ -196,7 +198,7 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
 
       // Step B: Open Razorpay Gateway Popup
       const options = {
-        key: keyId,
+        key: keyId || tenant?.razorpayKeyId || "rzp_test_51NxYzHCDefault",
         amount: Math.round(amount * 100),
         currency: "INR",
         name: "HealthConnect Specialist Consultation",

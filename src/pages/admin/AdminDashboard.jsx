@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../../api/api";
 import toast from "react-hot-toast";
+import OnboardTenantModal from "./OnboardTenantModal";
 
 function AdminDashboard() {
   const navigate = useNavigate();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [showOnboardModal, setShowOnboardModal] = useState(false);
   const profileMenuRef = useRef(null);
 
   // Live KPI & Dashboard State
@@ -277,6 +279,17 @@ function AdminDashboard() {
 
           <div style={styles.headerActions}>
             <button
+              onClick={() => setShowOnboardModal(true)}
+              style={styles.onboardTenantBtn}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                <path d="M3 21h18"></path>
+                <path d="M5 21V7l8-4v18"></path>
+                <path d="M19 21V11l-6-4"></path>
+              </svg>
+              <span>Onboard Tenant / Hospital</span>
+            </button>
+            <button
               onClick={() => navigate("/admin/add-doctor")}
               style={styles.onboardBtn}
             >
@@ -413,6 +426,31 @@ function AdminDashboard() {
           </div>
 
           <div className="admin-actions-grid" style={styles.gridContainer}>
+            {/* CARD 0: MULTI-TENANT ONBOARDING */}
+            <div
+              style={styles.actionCard}
+              onClick={() => setShowOnboardModal(true)}
+            >
+              <div style={styles.cardHeaderRow}>
+                <div style={{ ...styles.iconContainer, backgroundColor: "#EEF2FF", color: "#4F46E5" }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M3 21h18"></path>
+                    <path d="M5 21V7l8-4v18"></path>
+                    <path d="M19 21V11l-6-4"></path>
+                    <path d="M9 9h1"></path>
+                    <path d="M9 13h1"></path>
+                    <path d="M9 17h1"></path>
+                  </svg>
+                </div>
+                <span style={{ ...styles.cardBadgeBlue, backgroundColor: "#EEF2FF", color: "#4F46E5" }}>White-Label</span>
+              </div>
+              <h3 style={styles.cardTitle}>Tenant & Hospital Onboarding</h3>
+              <p style={styles.cardDesc}>Provision standalone clinics, multi-branch hospital groups, and assign executive administrator credentials.</p>
+              <div style={styles.cardFooter}>
+                <span style={{ ...styles.linkArrow, color: "#4F46E5" }}>Open Tenant Setup &rarr;</span>
+              </div>
+            </div>
+
             {/* CARD 1: ADD DOCTOR */}
             <div
               style={styles.actionCard}
@@ -687,6 +725,13 @@ function AdminDashboard() {
           <span>Payments</span>
         </div>
       </nav>
+
+      {/* Multi-Tenant Onboarding Modal */}
+      <OnboardTenantModal
+        isOpen={showOnboardModal}
+        onClose={() => setShowOnboardModal(false)}
+        onSuccess={() => fetchDashboardData()}
+      />
     </div>
   );
 }
@@ -917,6 +962,21 @@ const styles = {
     fontWeight: "700",
     cursor: "pointer",
     boxShadow: "0 2px 8px rgba(37, 99, 235, 0.2)",
+    transition: "background-color 0.15s ease",
+  },
+  onboardTenantBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "9px 16px",
+    backgroundColor: "#4F46E5",
+    color: "#FFFFFF",
+    borderRadius: "10px",
+    border: "none",
+    fontSize: "13px",
+    fontWeight: "700",
+    cursor: "pointer",
+    boxShadow: "0 2px 8px rgba(79, 70, 229, 0.25)",
     transition: "background-color 0.15s ease",
   },
 

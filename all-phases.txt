@@ -1,0 +1,387 @@
+HealthConnect API: Frontend Integration Guide (Phases 1 - 6)
+This document provides a comprehensive blueprint for frontend developers to integrate with the new multi-tenant architecture, white-label branding, administrative hierarchy, front-desk QR verification, and payment processing.
+
+📑 Table of Contents
+User Roles & Access Matrix
+Domain-Based White-Label Resolution (Bootstrapping)
+System Super Admin (
+ADMIN
+) Endpoints
+Organization Admin (
+ORGANIZATION_ADMIN
+) Endpoints
+Clinic Admin (
+CLINIC_ADMIN
+) Endpoints
+Front-Desk Assistant / PA (
+ASSISTANT
+) Endpoints
+Booking & Payment Integration (Dynamic Razorpay)
+Error Codes & Frontend Handling
+1. User Roles & Access Matrix
+Your JWT authentication token will contain the user role. Update your routing and role-based guards according to this matrix:
+
+Role String	Portal / UI View	Primary Capabilities
+ADMIN	Super Admin Dashboard	Onboard Organizations, Onboard Standalone Clinics, Provision Org Admins & Clinic Admins, View Platform Overviews.
+ORGANIZATION_ADMIN	Hospital Network Dashboard	Add Hospital Branches/Clinics, Assign Clinic Admins, View Full Hierarchy (Clinic Admins, Doctors per clinic, Clinic-wise & Network-wide Transactions).
+CLINIC_ADMIN	Clinic Branch Dashboard	Onboard Clinic Doctors, Onboard Front-Desk PAs/Assistants, View Clinic Profile, Doctors, PAs, Clinic Appointments & Financial Transactions.
+ASSISTANT	Front-Desk / Reception Portal	Scan Patient QR Codes, Check In Patients, View Waiting Room Queue, Front-Desk Daily Stats.
+DOCTOR	Doctor Portal	View assigned patient consultations, appointment calendar, prescriptions.
+USER	Patient Booking Web App	Browse doctors, book appointments, make online payments, receive QR tickets.
+2. Domain-Based White-Label Resolution (Bootstrapping)
+When the frontend single-page application loads, dynamically detect the host domain before rendering tenant branding.
+
+API Call
+http
+
+GET /api/v2/partner?domain_eq={window.location.origin}
+Alternative: GET /api/public/tenant?domain={window.location.origin}
+
+Response (200 OK)
+json
+
+{
+  "tenantType": "ORGANIZATION",      // "ORGANIZATION" or "CLINIC"
+  "id": 1,
+  "name": "Star Hospital Group",
+  "code": "STAR",
+  "domain": "starhospital.com",
+  "webUrl": "https://starhospital.com",
+  "about": "Leading multi-speciality hospital network",
+  "description": "Excellence in healthcare across branches",
+  "logoUrl": "https://starhospital.com/assets/logo.png",
+  "googleAnalytics": "G-STAR12345",
+  "razorpayKeyId": "rzp_live_starHospital123", // Dynamic per-tenant public key
+  "status": "ACTIVE",
+  "phone": "+91 80 1234 5678",
+  "email": "contact@starhospital.com",
+  "address": "Bangalore, India",
+  "clinics": [
+    {
+      "id": 10,
+      "branchName": "Whitefield",
+      "clinicCode": "STAR_WF",
+      "address": "ITPL Main Road, Whitefield",
+      "phone": "+91 80 9876 5432"
+    }
+  ]
+}
+NOTE
+
+If the domain is not recognized, the API returns the default platform settings with the platform's default Razorpay public key. The backend never returns razorpayKeySecret to the client.
+
+3. System Super Admin (ADMIN) Endpoints
+Headers required: Authorization: Bearer <ADMIN_JWT>
+
+3.1 Onboard Single Clinic / Standalone Hospital (Direct)
+Use this when onboarding an independent clinic or hospital without an organization. If admin credentials are provided, the CLINIC_ADMIN account is automatically provisioned in this single request.
+
+Endpoint: POST /api/admin/onboard-tenant
+Request Body:
+json
+
+{
+  "tenantType": "SINGLE_CLINIC",
+  "name": "Apollo Clinic Indiranagar",
+  "code": "APOLLO_IND",
+  "domain": "https://apolloclinic.com",
+  "webUrl": "https://apolloclinic.com",
+  "about": "Comprehensive healthcare clinic",
+  "description": "Primary healthcare and diagnostic clinic",
+  "googleAnalytics": "G-APOLLO99",
+  "razorpayKeyId": "rzp_live_apollo123",
+  "razorpayKeySecret": "apolloSecretKey999",
+  "branchName": "Indiranagar",
+  "phone": "+91 9876543210",
+  "email": "info@apolloclinic.com",
+  "address": "100ft Road, Indiranagar, Bengaluru",
+  "adminName": "Dr. Suresh Clinic Admin",
+  "adminEmail": "suresh.admin@apolloclinic.com",
+  "adminPassword": "Password@123"
+}
+Response (201 Created): Returns the created Clinic object (isStandalone = true, organization = null).
+(Direct alternative: POST /api/admin/single-clinic)
+
+3.2 Onboard Hospital Group / Organization
+Endpoint: POST /api/admin/organizations
+Request Body:
+json
+
+{
+  "name": "Star Hospital Group",
+  "code": "STAR",
+  "domain": "https://starhospital.com",
+  "webUrl": "https://starhospital.com",
+  "about": "Multispeciality hospital group",
+  "description": "Advanced patient care",
+  "googleAnalytics": "G-STAR999",
+  "razorpayKeyId": "rzp_live_starKey123",
+  "razorpayKeySecret": "starSecretKey456",
+  "phone": "+91 80 1234 5678",
+  "email": "admin@starhospital.com",
+  "address": "Bengaluru, Karnataka"
+}
+Response (201 Created): Returns Organization entity with assigned id.
+3.3 Create Organization Admin for an Organization
+Endpoint: POST /api/admin/organizations/{organizationId}/admin
+Request Body:
+json
+
+{
+  "name": "Rohan Org Admin",
+  "email": "rohan.admin@starhospital.com",
+  "password": "Password@123",
+  "phone": "+91 9888877777"
+}
+Response (201 Created): Returns User entity with role: "ORGANIZATION_ADMIN" and organization_id.
+3.4 Create Clinic Admin for a Standalone Clinic
+Endpoint: POST /api/admin/clinics/{clinicId}/admin
+Request Body:
+json
+
+{
+  "name": "Pooja Clinic Admin",
+  "email": "pooja.admin@apolloclinic.com",
+  "password": "Password@123",
+  "phone": "+91 9876500000"
+}
+4. Organization Admin (ORGANIZATION_ADMIN) Endpoints
+Headers required: Authorization: Bearer <ORGANIZATION_ADMIN_JWT>
+
+4.1 Create Branch / Clinic under Organization
+Endpoint: POST /api/org-admin/clinics
+Request Body:
+json
+
+{
+  "branchName": "Whitefield",
+  "code": "STAR_WF",
+  "phone": "+91 80 2841 0000",
+  "email": "whitefield@starhospital.com",
+  "address": "ITPL Main Road, Whitefield, Bengaluru"
+}
+4.2 Assign Clinic Admin to a Branch
+Endpoint: POST /api/org-admin/clinic-admins
+Request Body:
+json
+
+{
+  "clinicId": 10,
+  "name": "Ramesh Branch Admin",
+  "email": "ramesh.whitefield@starhospital.com",
+  "password": "Password@123",
+  "phone": "+91 9876541111"
+}
+4.3 Get Full Hierarchy & Transaction Overview
+Use this for the Organization Admin's master dashboard.
+
+Endpoint: GET /api/org-admin/hierarchy
+Response (200 OK):
+json
+
+{
+  "organizationId": 1,
+  "organizationName": "Star Hospital Group",
+  "totalClinics": 2,
+  "totalDoctors": 8,
+  "totalAssistants": 4,
+  "totalTransactions": 140,
+  "totalRevenue": 125000.0,
+  "clinics": [
+    {
+      "clinicId": 10,
+      "clinicName": "Star Hospital Group - Whitefield",
+      "branchName": "Whitefield",
+      "clinicCode": "STAR_WF",
+      "phone": "+91 80 2841 0000",
+      "email": "whitefield@starhospital.com",
+      "address": "ITPL Main Road, Whitefield, Bengaluru",
+      "totalTransactions": 70,
+      "totalRevenue": 65000.0,
+      "clinicAdmins": [
+        {
+          "id": 25,
+          "name": "Ramesh Branch Admin",
+          "email": "ramesh.whitefield@starhospital.com",
+          "phone": "+91 9876541111",
+          "role": "CLINIC_ADMIN"
+        }
+      ],
+      "doctors": [
+        {
+          "id": 14,
+          "name": "Dr. Sarah Jenkins",
+          "email": "sarah@starhospital.com",
+          "specialization": "Cardiology",
+          "experience": 10,
+          "consultationFee": 800.0,
+          "qualification": "MBBS, MD"
+        }
+      ],
+      "assistants": [
+        {
+          "id": 31,
+          "name": "Priya Desk PA",
+          "email": "priya.pa@starhospital.com",
+          "role": "ASSISTANT"
+        }
+      ],
+      "transactions": [
+        {
+          "appointmentId": 101,
+          "patientName": "John Doe",
+          "patientPhone": "+91 9999988888",
+          "doctorName": "Dr. Sarah Jenkins",
+          "clinicName": "Star Hospital Group - Whitefield",
+          "amount": 800.0,
+          "currency": "INR",
+          "paymentStatus": "COMPLETED",
+          "razorpayOrderId": "order_M123",
+          "razorpayPaymentId": "pay_P456",
+          "appointmentDate": "2026-09-12",
+          "appointmentTime": "10:30 AM",
+          "isCheckedIn": true,
+          "checkedInAt": "2026-09-12T10:15:00",
+          "checkedInBy": "Priya Desk PA",
+          "transactionDate": "2026-09-11T20:30:00"
+        }
+      ]
+    }
+  ],
+  "overallTransactions": [
+    /* Aggregated flat list of all transactions across all branches */
+  ]
+}
+4.4 Filter Transactions
+Endpoint: GET /api/org-admin/transactions?clinicId={clinicId} (leave clinicId out for all transactions).
+5. Clinic Admin (CLINIC_ADMIN) Endpoints
+Headers required: Authorization: Bearer <CLINIC_ADMIN_JWT> The backend automatically resolves the CLINIC_ADMIN's assigned clinicId from their token.
+
+5.1 Clinic Overview & Transactions
+Endpoint: GET /api/clinic-admin/overview
+Response (200 OK): Returns ClinicDetailOverviewDTO containing clinic metadata, clinic admins list, doctors list, assistants list, counts, total revenue, and the transactions array.
+5.2 Transactions Only
+Endpoint: GET /api/clinic-admin/transactions
+Response (200 OK): List of TransactionDTO.
+5.3 Onboard Doctor into Clinic
+Endpoint: POST /api/clinic-admin/doctors
+Request Body:
+json
+
+{
+  "name": "Dr. Vikram Seth",
+  "email": "vikram.seth@apolloclinic.com",
+  "password": "Password@123",
+  "phone": "+91 9845012345",
+  "specialization": "Orthopedics",
+  "qualification": "MBBS, MS (Ortho)",
+  "experience": 8,
+  "consultationFee": 700.0,
+  "about": "Specialist in joint replacement and trauma surgery"
+}
+5.4 Onboard Front-Desk Assistant / PA
+Endpoint: POST /api/clinic-admin/assistants
+Request Body:
+json
+
+{
+  "name": "Ananya PA",
+  "email": "ananya.pa@apolloclinic.com",
+  "password": "Password@123",
+  "phone": "+91 9845098765"
+}
+6. Front-Desk Assistant / PA (ASSISTANT) Endpoints
+Headers required: Authorization: Bearer <ASSISTANT_JWT>
+
+6.1 Scan Patient QR Code / Verify Check-In
+When the desk scanner or camera reads the QR code:
+
+Endpoint: POST /api/assistant/check-in
+Request Body:
+json
+
+{
+  "ticketId": "HC-8F7E6D5C"
+}
+Success Response (200 OK):
+json
+
+{
+  "success": true,
+  "message": "Patient check-in successful",
+  "appointmentId": 101,
+  "ticketId": "HC-8F7E6D5C",
+  "patientName": "John Doe",
+  "patientPhone": "+91 9999988888",
+  "doctorName": "Dr. Vikram Seth",
+  "clinicName": "Apollo Clinic Indiranagar",
+  "appointmentDate": "2026-09-12",
+  "appointmentTime": "10:30 AM",
+  "isCheckedIn": true,
+  "checkedInAt": "2026-09-12T10:15:00",
+  "checkedInByAssistantName": "Ananya PA"
+}
+(Alternatively, the assistant can call GET /api/validate/{ticketId} or POST /api/validate/{ticketId}).
+
+6.2 Live Waiting Room Queue
+Endpoint: GET /api/assistant/today-queue
+Response (200 OK):
+json
+
+{
+  "todayDate": "2026-09-12",
+  "clinicName": "Apollo Clinic Indiranagar",
+  "totalToday": 15,
+  "checkedInToday": 6,
+  "waitingCount": 4,
+  "completedToday": 2,
+  "appointments": [
+    {
+      "appointmentId": 101,
+      "ticketId": "HC-8F7E6D5C",
+      "patientName": "John Doe",
+      "doctorName": "Dr. Vikram Seth",
+      "appointmentTime": "10:30 AM",
+      "isCheckedIn": true,
+      "checkedInAt": "2026-09-12T10:15:00",
+      "checkedInByAssistant": "Ananya PA",
+      "status": "CONFIRMED"
+    }
+  ]
+}
+6.3 Front-Desk Daily Stats
+Endpoint: GET /api/assistant/stats
+Response (200 OK):
+json
+
+{
+  "todayAppointments": 15,
+  "checkedInCount": 6,
+  "waitingCount": 4,
+  "completedCount": 2,
+  "totalClinicAppointments": 340
+}
+7. Booking & Payment Integration (Dynamic Razorpay)
+When a patient books an appointment:
+
+Initialize Razorpay Options: Use razorpayKeyId received from the bootstrapping API (/api/v2/partner?domain_eq=...).
+Order Creation: Call POST /api/payment/create-order. The backend automatically selects the merchant credentials for the clinic/organization owning the doctor.
+Payment Verification: Call POST /api/payment/verify.
+json
+
+{
+  "razorpay_order_id": "order_xxx",
+  "razorpay_payment_id": "pay_yyy",
+  "razorpay_signature": "zzz...",
+  "appointment_id": 101
+}
+Ticket Returned: The verification response returns the generated ticket format (HC-XXXXXXXX) and QR payload, which the patient can save or show at the front desk.
+8. Error Codes & Frontend Handling
+Handle these specific backend exceptions in your UI:
+
+HTTP Status	Error Message / Code	Scenario	Recommended UI Handling
+400 Bad Request	WRONG_CLINIC: Ticket belongs to clinic '...' but scanned at '...'	Patient brought their ticket to the wrong branch	Show error dialog with warning banner: "Invalid Clinic: This appointment is scheduled for [Correct Branch Name]."
+400 Bad Request	ALREADY_CHECKED_IN: Checked in at ... by ...	Assistant accidentally scanned the same ticket twice	Show informational toast: "Patient is already checked in."
+400 Bad Request	INVALID_STATUS: Only CONFIRMED appointments can be checked in	Appointment was cancelled or pending payment	Display modal: "Cannot check in: Appointment is cancelled or unpaid."
+404 Not Found	Appointment not found for ticket: ...	Malformed or invalid QR code	Show red alert: "Invalid QR ticket code."
+403 Forbidden	Access Denied	User lacks the required role for the portal	Redirect to appropriate login page.

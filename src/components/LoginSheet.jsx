@@ -74,6 +74,15 @@ function LoginSheet({ isOpen, onClose, onSwitchToRegister, initialEmail = "", in
         case "ADMIN":
           navigate("/admin", { replace: true });
           break;
+        case "ORGANIZATION_ADMIN":
+          navigate("/org-admin", { replace: true });
+          break;
+        case "CLINIC_ADMIN":
+          navigate("/clinic-admin", { replace: true });
+          break;
+        case "ASSISTANT":
+          navigate("/assistant", { replace: true });
+          break;
         case "USER":
           navigate("/user", { replace: true });
           break;

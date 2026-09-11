@@ -82,6 +82,13 @@ function DoctorScanner() {
           message: res.data?.message || "This ticket belongs to another doctor.",
           doctorName: res.data?.doctorName,
         });
+      } else if (status === "WRONG_CLINIC") {
+        toast.error("Wrong Clinic Branch!", { id: "verify" });
+        setValidationData({
+          status: "WRONG_CLINIC",
+          message: res.data?.message || "This ticket is scheduled for another clinic branch.",
+          clinicName: res.data?.clinicName,
+        });
       } else {
         toast.error("Invalid Ticket", { id: "verify" });
         setValidationData({ 
@@ -256,6 +263,32 @@ function DoctorScanner() {
               <h2 style={scannerStyles.resultHeadingWarning}>Different Practitioner</h2>
               <p style={scannerStyles.messageBoxWarning}>
                 {validationData.message || "This appointment ticket belongs to a different doctor's consultation queue."}
+              </p>
+
+              <button onClick={resetScanner} style={scannerStyles.secondaryBtn}>
+                <span>Scan Another Pass</span>
+              </button>
+            </div>
+          )}
+
+          {/* === 2B. WRONG CLINIC === */}
+          {validationData?.status === "WRONG_CLINIC" && (
+            <div style={scannerStyles.statusSection}>
+              <div style={scannerStyles.iconBadgeWarning}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
+
+              <div style={scannerStyles.warningPill}>
+                <span>Wrong Clinic Branch</span>
+              </div>
+
+              <h2 style={scannerStyles.resultHeadingWarning}>Different Clinic Branch</h2>
+              <p style={scannerStyles.messageBoxWarning}>
+                {validationData.message || "This appointment ticket is scheduled at another clinic branch."}
               </p>
 
               <button onClick={resetScanner} style={scannerStyles.secondaryBtn}>

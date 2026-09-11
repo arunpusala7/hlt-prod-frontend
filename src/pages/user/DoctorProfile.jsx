@@ -7,8 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { formatDoctorName } from "../../utils/formatDoctorName";
 import { getDoctorPortrait } from "../../utils/doctorAvatars";
 import { getLocalDateString } from "../../utils/dateUtils";
+import { useTenant } from "../../context/TenantContext";
 
 function DoctorProfile() {
+  const { tenant } = useTenant();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -192,7 +194,7 @@ function DoctorProfile() {
 
       // Step 2: Open Razorpay Gateway
       const options = {
-        key: keyId,
+        key: keyId || tenant?.razorpayKeyId || "rzp_test_51NxYzHCDefault",
         amount: Math.round((resAmount || amount) * 100),
         currency: "INR",
         name: "HealthConnect Specialist Care",
