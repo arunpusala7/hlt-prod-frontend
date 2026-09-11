@@ -48,7 +48,7 @@ function MyAppointments() {
     try {
       setLoading(true);
       const res = await api.get("/api/appointments/my");
-      setAppointments(res.data || []);
+      setAppointments(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       toast.error("Failed to load appointments");
     } finally {
@@ -182,7 +182,9 @@ function MyAppointments() {
     }
   };
 
-  const filteredAppointments = appointments.filter((a) => {
+  const safeAppointments = Array.isArray(appointments) ? appointments : [];
+
+  const filteredAppointments = safeAppointments.filter((a) => {
     if (filterTab === "ALL") return true;
     if (filterTab === "UPCOMING") return a.status === "BOOKED" || a.status === "RESCHEDULED";
     if (filterTab === "COMPLETED") return a.status === "COMPLETED";
@@ -191,10 +193,10 @@ function MyAppointments() {
   });
 
   const counts = {
-    ALL: appointments.length,
-    UPCOMING: appointments.filter(a => a.status === "BOOKED" || a.status === "RESCHEDULED").length,
-    COMPLETED: appointments.filter(a => a.status === "COMPLETED").length,
-    CANCELLED: appointments.filter(a => a.status === "CANCELLED").length,
+    ALL: safeAppointments.length,
+    UPCOMING: safeAppointments.filter(a => a.status === "BOOKED" || a.status === "RESCHEDULED").length,
+    COMPLETED: safeAppointments.filter(a => a.status === "COMPLETED").length,
+    CANCELLED: safeAppointments.filter(a => a.status === "CANCELLED").length,
   };
 
   return (

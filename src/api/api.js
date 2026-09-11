@@ -20,4 +20,35 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Response interceptor to gracefully handle malformed JSON stream errors (e.g. trailing Hibernate proxy error)
+api.interceptors.response.use(
+  (response) => {
+    if (typeof response.data === "string") {
+      const raw = response.data.trim();
+      if (raw.startsWith("[") && raw.includes("}]{")) {
+        try {
+          response.data = JSON.parse(raw.split("}]{")[0] + "}]");
+        } catch {}
+      }
+    }
+    return response;
+  },
+  (error) => {
+    if (error.response && typeof error.response.data === "string") {
+      const raw = error.response.data.trim();
+      if (raw.startsWith("[") && raw.includes("}]{")) {
+        try {
+          const recovered = JSON.parse(raw.split("}]{")[0] + "}]");
+          return Promise.resolve({
+            ...error.response,
+            status: 200,
+            data: recovered,
+          });
+        } catch {}
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

@@ -10,6 +10,7 @@ import { getLocalDateString } from "../../utils/dateUtils";
 import { createPortal } from "react-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { useTenant } from "../../context/TenantContext";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -219,6 +220,8 @@ function UserOverview({
   preSelectedDoctorId = null,
   onClearPreSelectedDoctor 
 }) {
+  const { tenant } = useTenant();
+
   // Instant cached state to eliminate initial loading jerk
   const [nextAppointment, setNextAppointment] = useState(() => {
     if (cachedUpcomingAppt !== null) return cachedUpcomingAppt;
@@ -231,16 +234,30 @@ function UserOverview({
   });
 
   const [doctors, setDoctors] = useState(() => {
-    if (cachedDoctorsList && cachedDoctorsList.length > 0) return cachedDoctorsList;
+    if (Array.isArray(cachedDoctorsList) && cachedDoctorsList.length > 0) return cachedDoctorsList;
     try {
       const saved = localStorage.getItem("hc_cached_doctors");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
+    try { localStorage.removeItem("hc_cached_doctors"); } catch {}
     return DB_DOCTORS_INITIAL;
   });
+
+  // Always guaranteed to be a valid array
+  const safeDoctors = useMemo(() => {
+    if (Array.isArray(doctors) && doctors.length > 0) return doctors;
+    if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) return tenant.doctors;
+    return DB_DOCTORS_INITIAL;
+  }, [doctors, tenant]);
+
+  useEffect(() => {
+    if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
+      setDoctors(tenant.doctors);
+    }
+  }, [tenant]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState(null);
@@ -264,14 +281,14 @@ function UserOverview({
 
   // If a doctor was pre-selected, immediately open the Swiggy 75% bottom sheet
   useEffect(() => {
-    if (preSelectedDoctorId && doctors.length > 0) {
-      const doc = doctors.find((d) => String(d.id) === String(preSelectedDoctorId));
+    if (preSelectedDoctorId && safeDoctors.length > 0) {
+      const doc = safeDoctors.find((d) => String(d.id) === String(preSelectedDoctorId));
       if (doc) {
         handleOpenBookingModal(doc);
         if (onClearPreSelectedDoctor) onClearPreSelectedDoctor();
       }
     }
-  }, [preSelectedDoctorId, doctors]);
+  }, [preSelectedDoctorId, safeDoctors]);
 
   // In-Page Doctor Booking Modal State (Screen 3)
   const [bookingDoctor, setBookingDoctor] = useState(null);
@@ -344,7 +361,8 @@ function UserOverview({
   const fetchUpcomingAppointment = async () => {
     try {
       const res = await api.get("/api/appointments/my");
-      const upcoming = (res.data || []).find(a => a.status === "BOOKED" || a.status === "RESCHEDULED");
+      const appts = Array.isArray(res.data) ? res.data : [];
+      const upcoming = appts.find(a => a.status === "BOOKED" || a.status === "RESCHEDULED");
       const result = upcoming || null;
       cachedUpcomingAppt = result;
       localStorage.setItem("hc_cached_upcoming", JSON.stringify(result));
@@ -360,7 +378,7 @@ function UserOverview({
   const fetchDoctorsList = async () => {
     try {
       const res = await api.get("/api/doctors");
-      if (res.data && res.data.length > 0) {
+      if (Array.isArray(res.data) && res.data.length > 0) {
         cachedDoctorsList = res.data;
         localStorage.setItem("hc_cached_doctors", JSON.stringify(res.data));
         setDoctors(prev => {
@@ -762,7 +780,7 @@ function UserOverview({
   };
 
   // Filter doctors
-  const filteredDoctors = doctors.filter((doc) => {
+  const filteredDoctors = safeDoctors.filter((doc) => {
     const sTerm = searchTerm.trim().toLowerCase();
     const docName = doc.name?.toLowerCase() || "";
     const docSpec = doc.specialization?.toLowerCase() || "";
@@ -995,13 +1013,13 @@ function UserOverview({
               All
             </span>
             <span style={!selectedSpecialty ? styles.specChipCountActive : styles.specChipCount}>
-              {doctors.length}
+              {safeDoctors.length}
             </span>
           </motion.button>
 
           {ALL_SPECIALTIES.map((spec) => {
             const isActive = selectedSpecialty === spec.id;
-            const count = doctors.filter(d => {
+            const count = safeDoctors.filter(d => {
               const dSpec = (d.specialization || '').toLowerCase();
               return spec.matchKeys.some(k => dSpec.includes(k));
             }).length;

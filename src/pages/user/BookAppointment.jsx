@@ -62,7 +62,7 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
   useEffect(() => {
     api.get("/api/doctors")
       .then(res => {
-        const fetchedDocs = res.data || [];
+        const fetchedDocs = Array.isArray(res.data) ? res.data : (Array.isArray(tenant?.doctors) ? tenant.doctors : []);
         setDoctors(fetchedDocs);
 
         if (preSelectedDoctorId) {
@@ -72,10 +72,20 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
           }
         }
       })
-      .catch(() => toast.error("Failed to fetch doctors"));
-  }, [preSelectedDoctorId]);
+      .catch(() => {
+        if (Array.isArray(tenant?.doctors) && tenant.doctors.length > 0) {
+          setDoctors(tenant.doctors);
+        } else {
+          toast.error("Failed to fetch doctors");
+        }
+      });
+  }, [preSelectedDoctorId, tenant]);
 
-  const filteredDoctors = doctors.filter(doc => {
+  const safeDoctorsList = Array.isArray(doctors) && doctors.length > 0
+    ? doctors
+    : (Array.isArray(tenant?.doctors) && tenant.doctors.length > 0 ? tenant.doctors : []);
+
+  const filteredDoctors = safeDoctorsList.filter(doc => {
     const nameMatch = doc.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const specMatch = doc.specialization?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSearch = nameMatch || specMatch;
@@ -83,7 +93,7 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
     return matchesSearch && matchesFilter;
   });
 
-  const specializations = ["All", ...new Set(doctors.map(d => d.specialization).filter(Boolean))];
+  const specializations = ["All", ...new Set(safeDoctorsList.map(d => d.specialization).filter(Boolean))];
 
   const fetchSlots = async (docId, selectedDate) => {
     setLoadingSlots(true);

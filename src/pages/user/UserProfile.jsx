@@ -83,7 +83,7 @@ function UserProfile() {
     // 2. Fetch user appointment statistics
     api.get("/api/appointments/my")
       .then(res => {
-        const all = res.data || [];
+        const all = Array.isArray(res.data) ? res.data : [];
         const upcoming = all.filter(a => a.status === 'BOOKED' || a.status === 'RESCHEDULED').length;
         const completed = all.filter(a => a.status === 'COMPLETED').length;
         setStats({ total: all.length, upcoming, completed });
