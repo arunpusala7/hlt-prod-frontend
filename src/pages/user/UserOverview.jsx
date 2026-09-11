@@ -261,6 +261,84 @@ function UserOverview({
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState(null);
+  const [selectedOutlet, setSelectedOutlet] = useState(null);
+
+  const effectiveTenantType = tenant?.tenantType || localStorage.getItem("tenantType") || "PLATFORM";
+  const isOrganization = effectiveTenantType === "ORGANIZATION";
+
+  // Derive outlets / branches from tenant or doctors for ORGANIZATION
+  const outlets = useMemo(() => {
+    if (!isOrganization) return [];
+
+    if (tenant?.clinics && Array.isArray(tenant.clinics) && tenant.clinics.length > 0) {
+      return tenant.clinics.map((c) => {
+        let bName = (c.branchName || c.name || "").trim();
+        if (bName.includes(" - ")) {
+          bName = bName.split(" - ")[1].trim();
+        }
+        const orgName = (tenant?.name || "").trim().toUpperCase();
+        if (orgName && bName.toUpperCase().startsWith(orgName) && bName.length > orgName.length) {
+          const candidate = bName.substring(orgName.length).replace(/^[\s\-_]+/, "").trim();
+          if (candidate) bName = candidate;
+        }
+        return {
+          id: c.id,
+          code: c.code,
+          name: bName || c.branchName || c.name || `Outlet #${c.id}`,
+          fullName: c.name || c.branchName || `Outlet #${c.id}`,
+          branchName: c.branchName,
+          address: c.address,
+          phone: c.phone,
+        };
+      });
+    }
+
+    // Fallback: derive distinct outlets from safeDoctors
+    const map = new Map();
+    safeDoctors.forEach((doc) => {
+      const cId = doc.clinicId || doc.clinic?.id;
+      let bName = (doc.clinic?.branchName || doc.clinicName || doc.clinic?.name || doc.hospitalAffiliation || "").trim();
+      if (bName.includes(" - ")) {
+        bName = bName.split(" - ")[1].trim();
+      }
+      const orgName = (tenant?.name || "").trim().toUpperCase();
+      if (orgName && bName.toUpperCase().startsWith(orgName) && bName.length > orgName.length) {
+        const candidate = bName.substring(orgName.length).replace(/^[\s\-_]+/, "").trim();
+        if (candidate) bName = candidate;
+      }
+      if (cId != null && !map.has(String(cId))) {
+        map.set(String(cId), {
+          id: cId,
+          code: doc.clinic?.code,
+          name: bName || `Outlet #${cId}`,
+          fullName: doc.clinicName || doc.clinic?.name || bName,
+          branchName: doc.clinic?.branchName,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [isOrganization, tenant, safeDoctors]);
+
+  const doctorBelongsToOutlet = (doc, outlet) => {
+    if (!outlet || !doc) return false;
+    if (outlet.id != null) {
+      if (doc.clinicId != null && String(doc.clinicId) === String(outlet.id)) return true;
+      if (doc.clinic?.id != null && String(doc.clinic.id) === String(outlet.id)) return true;
+    }
+    if (outlet.code && doc.clinic?.code) {
+      if (String(doc.clinic.code).toUpperCase() === String(outlet.code).toUpperCase()) return true;
+    }
+    const oNames = [outlet.name, outlet.fullName, outlet.branchName].filter(Boolean).map(s => s.toLowerCase().trim());
+    const dNames = [doc.clinicName, doc.clinic?.name, doc.clinic?.branchName, doc.hospitalAffiliation].filter(Boolean).map(s => s.toLowerCase().trim());
+    for (const on of oNames) {
+      if (!on) continue;
+      for (const dn of dNames) {
+        if (dn.includes(on) || on.includes(dn)) return true;
+      }
+    }
+    return false;
+  };
+
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const userName = localStorage.getItem("userName") || "Alex";
 
@@ -784,16 +862,23 @@ function UserOverview({
     const sTerm = searchTerm.trim().toLowerCase();
     const docName = doc.name?.toLowerCase() || "";
     const docSpec = doc.specialization?.toLowerCase() || "";
+    const docClinic = (doc.clinicName || doc.clinic?.branchName || doc.clinic?.name || doc.hospitalAffiliation || "").toLowerCase();
 
-    const matchesSearch = !sTerm || docName.includes(sTerm) || docSpec.includes(sTerm);
+    const matchesSearch = !sTerm || docName.includes(sTerm) || docSpec.includes(sTerm) || docClinic.includes(sTerm);
     if (!matchesSearch) return false;
-    if (!selectedSpecialty) return true;
 
-    const specDef = ALL_SPECIALTIES.find(s => s.id === selectedSpecialty);
-    if (specDef && specDef.matchKeys) {
-      return specDef.matchKeys.some(k => docSpec.includes(k));
+    if (isOrganization) {
+      if (!selectedOutlet) return true;
+      const currentOutlet = outlets.find((o) => String(o.id) === String(selectedOutlet));
+      return doctorBelongsToOutlet(doc, currentOutlet);
+    } else {
+      if (!selectedSpecialty) return true;
+      const specDef = ALL_SPECIALTIES.find((s) => s.id === selectedSpecialty);
+      if (specDef && specDef.matchKeys) {
+        return specDef.matchKeys.some((k) => docSpec.includes(k));
+      }
+      return docSpec.includes(selectedSpecialty.toLowerCase());
     }
-    return docSpec.includes(selectedSpecialty.toLowerCase());
   });
 
   const getGreeting = () => {
@@ -990,57 +1075,117 @@ function UserOverview({
             )}
             <button 
               style={styles.filterBtn} 
-              onClick={() => setSelectedSpecialty(null)} 
-              title={selectedSpecialty ? "Clear Specialty Filter" : "Filter by Specialty"}
+              onClick={() => {
+                if (isOrganization) setSelectedOutlet(null);
+                else setSelectedSpecialty(null);
+              }} 
+              title={
+                isOrganization
+                  ? (selectedOutlet ? "Clear Outlet Filter" : "Filter by Hospital Outlet")
+                  : (selectedSpecialty ? "Clear Specialty Filter" : "Filter by Specialty")
+              }
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={selectedSpecialty ? "#3B82F6" : "#64748B"} strokeWidth="2.2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={(isOrganization ? selectedOutlet : selectedSpecialty) ? "#3B82F6" : "#64748B"} strokeWidth="2.2">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
               </svg>
             </button>
           </div>
         </div>
 
-        {/* Doctor Specialization Filter Chips Strip */}
+        {/* Strip: Outlets for ORGANIZATION, Specialties for Single Clinic / Standalone */}
         <div style={{ ...styles.specialtiesCardsStrip, marginBottom: "0px", paddingBottom: "2px" }}>
-          {/* 'All' chip */}
-          <motion.button
-            whileTap={{ scale: 0.94 }}
-            whileHover={{ y: -1 }}
-            onClick={() => setSelectedSpecialty(null)}
-            style={!selectedSpecialty ? styles.specChipActive : styles.specChipInactive}
-          >
-            <span style={!selectedSpecialty ? styles.specChipLabelActive : styles.specChipLabel}>
-              All
-            </span>
-            <span style={!selectedSpecialty ? styles.specChipCountActive : styles.specChipCount}>
-              {safeDoctors.length}
-            </span>
-          </motion.button>
-
-          {ALL_SPECIALTIES.map((spec) => {
-            const isActive = selectedSpecialty === spec.id;
-            const count = safeDoctors.filter(d => {
-              const dSpec = (d.specialization || '').toLowerCase();
-              return spec.matchKeys.some(k => dSpec.includes(k));
-            }).length;
-
-            return (
+          {isOrganization ? (
+            <>
+              {/* 'All Outlets' chip */}
               <motion.button
-                key={spec.id}
                 whileTap={{ scale: 0.94 }}
                 whileHover={{ y: -1 }}
-                onClick={() => setSelectedSpecialty(isActive ? null : spec.id)}
-                style={isActive ? styles.specChipActive : styles.specChipInactive}
+                onClick={() => setSelectedOutlet(null)}
+                style={!selectedOutlet ? styles.specChipActive : styles.specChipInactive}
+                title="Show doctors across all hospital outlets"
               >
-                <span style={isActive ? styles.specChipLabelActive : styles.specChipLabel}>
-                  {spec.label}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span style={!selectedOutlet ? styles.specChipLabelActive : styles.specChipLabel}>
+                  All Outlets
                 </span>
-                <span style={isActive ? styles.specChipCountActive : styles.specChipCount}>
-                  {count}
+                <span style={!selectedOutlet ? styles.specChipCountActive : styles.specChipCount}>
+                  {safeDoctors.length}
                 </span>
               </motion.button>
-            );
-          })}
+
+              {outlets.map((outlet) => {
+                const isActive = String(selectedOutlet) === String(outlet.id);
+                const count = safeDoctors.filter((d) => doctorBelongsToOutlet(d, outlet)).length;
+
+                return (
+                  <motion.button
+                    key={outlet.id}
+                    whileTap={{ scale: 0.94 }}
+                    whileHover={{ y: -1 }}
+                    onClick={() => setSelectedOutlet(isActive ? null : outlet.id)}
+                    style={isActive ? styles.specChipActive : styles.specChipInactive}
+                    title={outlet.fullName ? `${outlet.fullName} (${count} doctors)` : undefined}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                      <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span style={isActive ? styles.specChipLabelActive : styles.specChipLabel}>
+                      {outlet.name}
+                    </span>
+                    <span style={isActive ? styles.specChipCountActive : styles.specChipCount}>
+                      {count}
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              {/* Standalone / Single Clinic: Doctor Specializations */}
+              <motion.button
+                whileTap={{ scale: 0.94 }}
+                whileHover={{ y: -1 }}
+                onClick={() => setSelectedSpecialty(null)}
+                style={!selectedSpecialty ? styles.specChipActive : styles.specChipInactive}
+              >
+                <span style={!selectedSpecialty ? styles.specChipLabelActive : styles.specChipLabel}>
+                  All
+                </span>
+                <span style={!selectedSpecialty ? styles.specChipCountActive : styles.specChipCount}>
+                  {safeDoctors.length}
+                </span>
+              </motion.button>
+
+              {ALL_SPECIALTIES.map((spec) => {
+                const isActive = selectedSpecialty === spec.id;
+                const count = safeDoctors.filter((d) => {
+                  const dSpec = (d.specialization || '').toLowerCase();
+                  return spec.matchKeys.some((k) => dSpec.includes(k));
+                }).length;
+
+                return (
+                  <motion.button
+                    key={spec.id}
+                    whileTap={{ scale: 0.94 }}
+                    whileHover={{ y: -1 }}
+                    onClick={() => setSelectedSpecialty(isActive ? null : spec.id)}
+                    style={isActive ? styles.specChipActive : styles.specChipInactive}
+                  >
+                    <span style={isActive ? styles.specChipLabelActive : styles.specChipLabel}>
+                      {spec.label}
+                    </span>
+                    <span style={isActive ? styles.specChipCountActive : styles.specChipCount}>
+                      {count}
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
 
@@ -1050,21 +1195,28 @@ function UserOverview({
         <div style={{ ...styles.sectionTitleRow, marginTop: "14px", marginBottom: "12px" }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
             <h3 style={styles.sectionHeading}>
-              {selectedSpecialty 
-                ? `${ALL_SPECIALTIES.find(s => s.id === selectedSpecialty)?.label || selectedSpecialty} Specialists` 
-                : "Top Specialists"}
+              {isOrganization
+                ? (selectedOutlet 
+                    ? `${outlets.find((o) => String(o.id) === String(selectedOutlet))?.name || 'Selected Outlet'} Doctors` 
+                    : "Top Specialists")
+                : (selectedSpecialty 
+                    ? `${ALL_SPECIALTIES.find((s) => s.id === selectedSpecialty)?.label || selectedSpecialty} Specialists` 
+                    : "Top Specialists")}
             </h3>
             <span style={styles.specCountBadge}>
               {filteredDoctors.length} available
             </span>
           </div>
-          {selectedSpecialty && (
+          {(isOrganization ? selectedOutlet : selectedSpecialty) && (
             <span 
               style={styles.clearFilterLink} 
-              onClick={() => setSelectedSpecialty(null)}
-              title="Show all specialties"
+              onClick={() => {
+                if (isOrganization) setSelectedOutlet(null);
+                else setSelectedSpecialty(null);
+              }}
+              title={isOrganization ? "Show all hospital outlets" : "Show all specialties"}
             >
-              Show All ✕
+              {isOrganization ? "Show All Outlets ✕" : "Show All ✕"}
             </span>
           )}
         </div>
@@ -1090,6 +1242,17 @@ function UserOverview({
               <div style={styles.docCardBody}>
                 <h4 style={styles.docCardName}>{formatDoctorName(doc.name)}</h4>
                 <span style={styles.docCardSpec}>{doc.specialization || "Specialist"}</span>
+                {(doc.clinic?.branchName || doc.clinicName || doc.hospitalAffiliation) && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "3px", fontSize: "11.5px", color: "#64748B" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                      <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {doc.clinic?.branchName || doc.clinicName || doc.hospitalAffiliation}
+                    </span>
+                  </div>
+                )}
                 {doc.experienceYears && (
                   <span style={styles.docCardExp}>{doc.experienceYears}</span>
                 )}

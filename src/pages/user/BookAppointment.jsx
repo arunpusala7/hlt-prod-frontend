@@ -85,12 +85,78 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
     ? doctors
     : (Array.isArray(tenant?.doctors) && tenant.doctors.length > 0 ? tenant.doctors : []);
 
+  const effectiveTenantType = tenant?.tenantType || localStorage.getItem("tenantType") || "PLATFORM";
+  const isOrganization = effectiveTenantType === "ORGANIZATION";
+
+  const outlets = useMemo(() => {
+    if (!isOrganization) return [];
+    if (tenant?.clinics && Array.isArray(tenant.clinics) && tenant.clinics.length > 0) {
+      return tenant.clinics.map((c) => {
+        let bName = (c.branchName || c.name || "").trim();
+        if (bName.includes(" - ")) {
+          bName = bName.split(" - ")[1].trim();
+        }
+        const orgName = (tenant?.name || "").trim().toUpperCase();
+        if (orgName && bName.toUpperCase().startsWith(orgName) && bName.length > orgName.length) {
+          const candidate = bName.substring(orgName.length).replace(/^[\s\-_]+/, "").trim();
+          if (candidate) bName = candidate;
+        }
+        return {
+          id: c.id,
+          code: c.code,
+          name: bName || c.branchName || c.name || `Outlet #${c.id}`,
+          fullName: c.name || c.branchName,
+          branchName: c.branchName,
+        };
+      });
+    }
+    const map = new Map();
+    safeDoctorsList.forEach((doc) => {
+      const cId = doc.clinicId || doc.clinic?.id;
+      let bName = (doc.clinic?.branchName || doc.clinicName || doc.clinic?.name || doc.hospitalAffiliation || "").trim();
+      if (bName.includes(" - ")) bName = bName.split(" - ")[1].trim();
+      if (cId != null && !map.has(String(cId))) {
+        map.set(String(cId), { id: cId, name: bName || `Outlet #${cId}`, fullName: doc.clinicName || bName });
+      }
+    });
+    return Array.from(map.values());
+  }, [isOrganization, tenant, safeDoctorsList]);
+
+  const doctorBelongsToOutlet = (doc, outlet) => {
+    if (!outlet || !doc) return false;
+    if (outlet.id != null) {
+      if (doc.clinicId != null && String(doc.clinicId) === String(outlet.id)) return true;
+      if (doc.clinic?.id != null && String(doc.clinic.id) === String(outlet.id)) return true;
+    }
+    if (outlet.code && doc.clinic?.code) {
+      if (String(doc.clinic.code).toUpperCase() === String(outlet.code).toUpperCase()) return true;
+    }
+    const oNames = [outlet.name, outlet.fullName, outlet.branchName].filter(Boolean).map(s => s.toLowerCase().trim());
+    const dNames = [doc.clinicName, doc.clinic?.name, doc.clinic?.branchName, doc.hospitalAffiliation].filter(Boolean).map(s => s.toLowerCase().trim());
+    for (const on of oNames) {
+      if (!on) continue;
+      for (const dn of dNames) {
+        if (dn.includes(on) || on.includes(dn)) return true;
+      }
+    }
+    return false;
+  };
+
   const filteredDoctors = safeDoctorsList.filter(doc => {
     const nameMatch = doc.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const specMatch = doc.specialization?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSearch = nameMatch || specMatch;
-    const matchesFilter = activeFilter === "All" || doc.specialization === activeFilter;
-    return matchesSearch && matchesFilter;
+    const docClinic = (doc.clinicName || doc.clinic?.branchName || doc.clinic?.name || doc.hospitalAffiliation || "").toLowerCase();
+    const matchesSearch = nameMatch || specMatch || docClinic.includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (isOrganization) {
+      if (activeFilter === "All") return true;
+      const currentOutlet = outlets.find(o => String(o.id) === String(activeFilter));
+      return doctorBelongsToOutlet(doc, currentOutlet);
+    } else {
+      const matchesFilter = activeFilter === "All" || doc.specialization === activeFilter;
+      return matchesFilter;
+    }
   });
 
   const specializations = ["All", ...new Set(safeDoctorsList.map(d => d.specialization).filter(Boolean))];
@@ -341,17 +407,40 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
               </div>
             </div>
 
-            {/* Specialty Horizontal Pill Filters */}
+            {/* Horizontal Filter: Outlets for ORGANIZATION, Specialties for Standalone */}
             <div style={styles.filterStrip}>
-              {specializations.map((spec) => (
-                <button
-                  key={spec}
-                  onClick={() => setActiveFilter(spec)}
-                  className={`filter-pill ${activeFilter === spec ? 'active' : 'inactive'}`}
-                >
-                  {getSpecialtyIcon(spec)} {spec}
-                </button>
-              ))}
+              {isOrganization ? (
+                <>
+                  <button
+                    onClick={() => setActiveFilter("All")}
+                    className={`filter-pill ${activeFilter === "All" ? 'active' : 'inactive'}`}
+                  >
+                    🏥 All Outlets ({safeDoctorsList.length})
+                  </button>
+                  {outlets.map((outlet) => {
+                    const count = safeDoctorsList.filter(d => doctorBelongsToOutlet(d, outlet)).length;
+                    return (
+                      <button
+                        key={outlet.id}
+                        onClick={() => setActiveFilter(String(activeFilter) === String(outlet.id) ? "All" : outlet.id)}
+                        className={`filter-pill ${String(activeFilter) === String(outlet.id) ? 'active' : 'inactive'}`}
+                      >
+                        📍 {outlet.name} ({count})
+                      </button>
+                    );
+                  })}
+                </>
+              ) : (
+                specializations.map((spec) => (
+                  <button
+                    key={spec}
+                    onClick={() => setActiveFilter(spec)}
+                    className={`filter-pill ${activeFilter === spec ? 'active' : 'inactive'}`}
+                  >
+                    {getSpecialtyIcon(spec)} {spec}
+                  </button>
+                ))
+              )}
             </div>
 
             {/* Doctors Grid */}
@@ -373,6 +462,14 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
                   <div style={styles.docContent}>
                     <h4 style={styles.docName}>{formatDoctorName(doc.name)}</h4>
                     <span style={styles.docSpec}>{getSpecialtyIcon(doc.specialization)} {doc.specialization}</span>
+                    {(doc.clinic?.branchName || doc.clinicName || doc.hospitalAffiliation) && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "2px", fontSize: "11px", color: "#64748B" }}>
+                        <span>📍</span>
+                        <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {doc.clinic?.branchName || doc.clinicName || doc.hospitalAffiliation}
+                        </span>
+                      </div>
+                    )}
                     <p style={styles.docPrice}>₹{doc.consultationFee || 500} <span style={{ fontSize: "11px", color: "#94A3B8" }}>/ session</span></p>
                     
                     <button
