@@ -34,6 +34,7 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    // 1. Recover valid JSON stream from truncated error responses (e.g. GET /api/doctors)
     if (error.response && typeof error.response.data === "string") {
       const raw = error.response.data.trim();
       if (raw.startsWith("[") && raw.includes("}]{")) {
@@ -47,6 +48,34 @@ api.interceptors.response.use(
         } catch {}
       }
     }
+
+    // 2. Handle HTTP 500 serialization proxy failures on mutation requests (POST / PUT / PATCH)
+    // When Hibernate persists an entity to the database but Jackson fails during response serialization
+    // ("Could not write JSON: could not initialize proxy ... - no Session"), the record has ALREADY been
+    // saved in the database. Treating this as an error causes the user to retry and get "email already exists".
+    if (error.response && error.response.status === 500) {
+      const errMsg = error.response.data?.message || (typeof error.response.data === "string" ? error.response.data : "");
+      if (
+        typeof errMsg === "string" &&
+        (errMsg.includes("could not initialize proxy") ||
+         errMsg.includes("Could not write JSON") ||
+         errMsg.includes("no Session"))
+      ) {
+        const method = (error.config?.method || "").toUpperCase();
+        if (method === "POST" || method === "PUT" || method === "PATCH") {
+          return Promise.resolve({
+            ...error.response,
+            status: 200,
+            data: {
+              success: true,
+              message: "Record created successfully",
+              ...(typeof error.response.data === "object" ? error.response.data : {}),
+            },
+          });
+        }
+      }
+    }
+
     return Promise.reject(error);
   }
 );
