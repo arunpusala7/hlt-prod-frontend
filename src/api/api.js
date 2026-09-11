@@ -6,7 +6,7 @@ const isLocalhost = typeof window !== "undefined" &&
 
 const API_URL = isLocalhost 
   ? (import.meta.env.VITE_LOCAL_API_URL || "http://localhost:8080")
-  : (import.meta.env.VITE_API_BASE_URL || "https://hlt-prod-backend-production.up.railway.app");
+  : (import.meta.env.VITE_API_BASE_URL || "https://hlt.zuuuz.in");
 
 const api = axios.create({
   baseURL: API_URL,
