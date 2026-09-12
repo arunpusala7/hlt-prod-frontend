@@ -24,7 +24,7 @@ const loadRazorpayScript = () => {
 };
 
 function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
-  const { tenant } = useTenant();
+  const { tenant, loadingTenant } = useTenant();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
@@ -65,18 +65,27 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
 
   // Load Doctors
   useEffect(() => {
-    if (tenant && tenant.tenantType !== "PLATFORM" && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
-      setDoctors(tenant.doctors);
-      if (preSelectedDoctorId) {
-        const match = tenant.doctors.find(d => String(d.id) === String(preSelectedDoctorId));
+    if (loadingTenant) return;
+
+    const isCustomDomain = typeof window !== "undefined" &&
+      !window.location.hostname.includes("localhost") &&
+      !window.location.hostname.includes("127.0.0.1") &&
+      window.location.hostname !== "healthconnect.zuuuz.in";
+
+    if (isCustomDomain || (tenant && tenant.tenantType !== "PLATFORM")) {
+      const docs = Array.isArray(tenant?.doctors) ? tenant.doctors : [];
+      setDoctors(docs);
+      if (preSelectedDoctorId && docs.length > 0) {
+        const match = docs.find(d => String(d.id) === String(preSelectedDoctorId));
         if (match) handleDoctorSelect(match);
       }
       return;
     }
 
+    // Base platform only
     api.get("/api/doctors")
       .then(res => {
-        const fetchedDocs = Array.isArray(res.data) ? res.data : (Array.isArray(tenant?.doctors) ? tenant.doctors : []);
+        const fetchedDocs = Array.isArray(res.data) ? res.data : [];
         setDoctors(fetchedDocs);
 
         if (preSelectedDoctorId) {
@@ -87,13 +96,13 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
         }
       })
       .catch(() => {
-        if (Array.isArray(tenant?.doctors) && tenant.doctors.length > 0) {
+        if (Array.isArray(tenant?.doctors)) {
           setDoctors(tenant.doctors);
         } else {
-          toast.error("Failed to fetch doctors");
+          setDoctors([]);
         }
       });
-  }, [preSelectedDoctorId, tenant]);
+  }, [loadingTenant, preSelectedDoctorId, tenant]);
 
   const safeDoctorsList = Array.isArray(doctors) && doctors.length > 0
     ? doctors
@@ -179,6 +188,37 @@ function BookAppointment({ onBookingComplete, preSelectedDoctorId }) {
     setLoadingSlots(true);
     setSlots([]);
     try {
+      // 1. Attempt Two-Tier Hierarchical Engine: GET /api/availability/doctor/{doctorId}/hierarchical
+      try {
+        const hRes = await api.get(`/api/availability/doctor/${docId}/hierarchical`, {
+          params: { date: selectedDate }
+        });
+        if (hRes.data && Array.isArray(hRes.data.macroWindows)) {
+          const availableSubSlots = [];
+          hRes.data.macroWindows.forEach(mw => {
+            if (Array.isArray(mw.subSlots)) {
+              mw.subSlots.forEach(ss => {
+                if (ss.status === "AVAILABLE") {
+                  availableSubSlots.push({
+                    startTime: ss.startTime,
+                    endTime: ss.endTime,
+                    displayTime: ss.displayTime || `${ss.startTime?.substring(0, 5)} - ${ss.endTime?.substring(0, 5)}`,
+                    macroWindow: mw.displayTime
+                  });
+                }
+              });
+            }
+          });
+          if (availableSubSlots.length > 0) {
+            setSlots(availableSubSlots);
+            return;
+          }
+        }
+      } catch (hierErr) {
+        // Continue to standard fallback
+      }
+
+      // 2. Standard Flat Endpoint Fallback
       const res = await api.get(`/api/availability/doctor/${docId}`, {
         params: { date: selectedDate }
       });

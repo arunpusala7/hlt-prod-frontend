@@ -23,9 +23,6 @@ const loadRazorpayScript = () => {
   });
 };
 
-// Module-level caches to guarantee 0ms instant loading with zero jerk
-let cachedDoctorsList = null;
-let cachedUpcomingAppt = null;
 
 export const ALL_SPECIALTIES = [
   { id: "Cardiology", label: "Cardio", matchKeys: ["cardio"] },
@@ -220,76 +217,33 @@ function UserOverview({
   preSelectedDoctorId = null,
   onClearPreSelectedDoctor 
 }) {
-  const { tenant } = useTenant();
+  const { tenant, loadingTenant } = useTenant();
 
-  // Instant cached state to eliminate initial loading jerk
-  const [nextAppointment, setNextAppointment] = useState(() => {
-    if (cachedUpcomingAppt !== null) return cachedUpcomingAppt;
-    try {
-      const saved = localStorage.getItem("hc_cached_upcoming");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  // Clean live state: no stale localStorage caching
+  const [nextAppointment, setNextAppointment] = useState(null);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
 
   const [doctors, setDoctors] = useState(() => {
-    // 1. If tenant doctors are already loaded synchronously via TenantContext
     if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
       return tenant.doctors;
     }
-    // 2. Try tenant/domain scoped cache
-    try {
-      const host = typeof window !== "undefined" ? window.location.host : "default";
-      const saved = localStorage.getItem(`hc_cached_doctors_${host}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    // Clean old global cache that had all 15 doctors
-    try { localStorage.removeItem("hc_cached_doctors"); } catch {}
-
-    // 3. In-memory cache if valid
-    if (Array.isArray(cachedDoctorsList) && cachedDoctorsList.length > 0) return cachedDoctorsList;
-
-    // Never return fake DB_DOCTORS_INITIAL if on a custom tenant domain (like apollo.zuuuz.in)!
-    const isCustomDomain = typeof window !== "undefined" &&
-      !window.location.hostname.includes("localhost") &&
-      !window.location.hostname.includes("127.0.0.1") &&
-      window.location.hostname !== "healthconnect.zuuuz.in";
-
-    if (isCustomDomain) {
-      return [];
-    }
-    return DB_DOCTORS_INITIAL;
+    return [];
   });
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
 
-  // Always guaranteed to be a valid array scoped to the tenant
+  // Always guaranteed to be a valid array scoped to the active tenant
   const safeDoctors = useMemo(() => {
-    // Prioritize tenant's doctors on custom domain
+    if (Array.isArray(doctors) && doctors.length > 0) return doctors;
     if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
       return tenant.doctors;
     }
-    if (Array.isArray(doctors) && doctors.length > 0) return doctors;
-    const isCustomDomain = typeof window !== "undefined" &&
-      !window.location.hostname.includes("localhost") &&
-      !window.location.hostname.includes("127.0.0.1") &&
-      window.location.hostname !== "healthconnect.zuuuz.in";
-    if (isCustomDomain) {
-      return [];
-    }
-    return DB_DOCTORS_INITIAL;
+    return [];
   }, [doctors, tenant]);
 
   useEffect(() => {
     if (tenant?.doctors && Array.isArray(tenant.doctors)) {
       setDoctors(tenant.doctors);
-      try {
-        const host = typeof window !== "undefined" ? window.location.host : "default";
-        localStorage.setItem(`hc_cached_doctors_${host}`, JSON.stringify(tenant.doctors));
-        cachedDoctorsList = tenant.doctors;
-      } catch {}
+      setLoadingDoctors(false);
     }
   }, [tenant]);
 
@@ -471,56 +425,71 @@ function UserOverview({
   ];
 
   const fetchUpcomingAppointment = async () => {
+    setLoadingUpcoming(true);
     try {
       const res = await api.get("/api/appointments/my");
       const appts = Array.isArray(res.data) ? res.data : [];
       const upcoming = appts.find(a => a.status === "BOOKED" || a.status === "RESCHEDULED");
-      const result = upcoming || null;
-      cachedUpcomingAppt = result;
-      localStorage.setItem("hc_cached_upcoming", JSON.stringify(result));
-      setNextAppointment(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(result)) return prev;
-        return result;
-      });
+      setNextAppointment(upcoming || null);
     } catch (err) {
       console.error("Failed to load upcoming appointments:", err);
+      setNextAppointment(null);
+    } finally {
+      setLoadingUpcoming(false);
     }
   };
 
   const fetchDoctorsList = async () => {
+    setLoadingDoctors(true);
     try {
-      const isCustomTenant = tenant && tenant.tenantType !== "PLATFORM";
-      if (isCustomTenant) {
-        // Re-fetch tenant configuration to get scoped doctors for this tenant
-        const origin = window.location.origin;
+      const isCustomDomain = typeof window !== "undefined" &&
+        !window.location.hostname.includes("localhost") &&
+        !window.location.hostname.includes("127.0.0.1") &&
+        window.location.hostname !== "healthconnect.zuuuz.in";
+
+      if (isCustomDomain || (tenant && tenant.tenantType !== "PLATFORM")) {
+        // If doctors are already pre-loaded in tenant object, use them immediately
+        if (tenant?.doctors && Array.isArray(tenant.doctors) && tenant.doctors.length > 0) {
+          setDoctors(tenant.doctors);
+          setLoadingDoctors(false);
+          return;
+        }
+
+        const domainToQuery = tenant?.domain || localStorage.getItem("hc_test_tenant_domain") || (typeof window !== "undefined" ? window.location.hostname : "");
         let res;
         try {
-          res = await api.get(`/api/v2/partner`, { params: { domain_eq: origin } });
+          res = await api.get(`/api/v2/partner`, { params: { domain_eq: domainToQuery } });
         } catch {
-          res = await api.get(`/api/public/tenant`, { params: { domain: origin } });
+          res = await api.get(`/api/public/tenant`, { params: { domain: domainToQuery } });
         }
         if (res?.data?.doctors && Array.isArray(res.data.doctors)) {
-          const host = typeof window !== "undefined" ? window.location.host : "default";
-          localStorage.setItem(`hc_cached_doctors_${host}`, JSON.stringify(res.data.doctors));
-          cachedDoctorsList = res.data.doctors;
           setDoctors(res.data.doctors);
           return;
         }
+        if (Array.isArray(tenant?.doctors)) {
+          setDoctors(tenant.doctors);
+          return;
+        }
+        setDoctors([]);
+        return;
       }
 
-      // Default platform doctors
+      // Default platform doctors (only on base platform)
       const res = await api.get("/api/doctors");
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        const host = typeof window !== "undefined" ? window.location.host : "default";
-        cachedDoctorsList = res.data;
-        localStorage.setItem(`hc_cached_doctors_${host}`, JSON.stringify(res.data));
-        setDoctors(prev => {
-          if (JSON.stringify(prev) === JSON.stringify(res.data)) return prev;
-          return res.data;
-        });
+      if (Array.isArray(res.data)) {
+        setDoctors(res.data);
+      } else {
+        setDoctors([]);
       }
     } catch (err) {
-      console.error("Failed to refresh doctors:", err);
+      console.error("Failed to load doctors:", err);
+      if (Array.isArray(tenant?.doctors)) {
+        setDoctors(tenant.doctors);
+      } else {
+        setDoctors([]);
+      }
+    } finally {
+      setLoadingDoctors(false);
     }
   };
 
@@ -541,8 +510,13 @@ function UserOverview({
 
   useEffect(() => {
     fetchUpcomingAppointment();
-    fetchDoctorsList();
   }, []);
+
+  useEffect(() => {
+    if (!loadingTenant) {
+      fetchDoctorsList();
+    }
+  }, [loadingTenant, tenant]);
 
   // Lock background page scroll whenever any 75% bottom sheet or modal is open
   const isAnySheetOpen = Boolean(
@@ -1259,7 +1233,7 @@ function UserOverview({
                     : "Top Specialists")}
             </h3>
             <span style={styles.specCountBadge}>
-              {filteredDoctors.length} available
+              {loadingDoctors ? "Loading..." : `${filteredDoctors.length} available`}
             </span>
           </div>
           {(isOrganization ? selectedOutlet : selectedSpecialty) && (
@@ -1278,7 +1252,30 @@ function UserOverview({
 
         {/* Doctor Cards 2-Column Grid (Two Cards Horizontally Side by Side) */}
         <div ref={doctorListRef} className="doctor-cards-grid" style={styles.doctorGrid}>
-          {filteredDoctors.length > 0 ? (
+          {loadingDoctors ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <div
+                key={`skeleton-${idx}`}
+                style={{
+                  ...styles.docCard,
+                  background: "#FFFFFF",
+                  border: "1px solid #E2E8F0",
+                  cursor: "default",
+                  opacity: 0.85
+                }}
+              >
+                <div style={{ ...styles.docCardAvatar, background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#E2E8F0" }} />
+                </div>
+                <div style={styles.docCardBody}>
+                  <div style={{ width: "70%", height: "16px", background: "#E2E8F0", borderRadius: "6px", marginBottom: "8px" }} />
+                  <div style={{ width: "45%", height: "12px", background: "#F1F5F9", borderRadius: "4px", marginBottom: "8px" }} />
+                  <div style={{ width: "55%", height: "12px", background: "#F1F5F9", borderRadius: "4px", marginBottom: "14px" }} />
+                  <div style={{ width: "100%", height: "36px", background: "#E2E8F0", borderRadius: "8px" }} />
+                </div>
+              </div>
+            ))
+          ) : filteredDoctors.length > 0 ? (
             filteredDoctors.map((doc) => (
               <motion.div
                 key={doc.id}

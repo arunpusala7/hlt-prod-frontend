@@ -71,26 +71,25 @@ function LoginSheet({ isOpen, onClose, onSwitchToRegister, initialEmail = "", in
       onClose();
 
       switch (role) {
-        case "ADMIN":
-          navigate("/admin", { replace: true });
-          break;
-        case "ORGANIZATION_ADMIN":
-          navigate("/org-admin", { replace: true });
-          break;
-        case "CLINIC_ADMIN":
-          navigate("/clinic-admin", { replace: true });
-          break;
-        case "ASSISTANT":
-          navigate("/assistant", { replace: true });
-          break;
         case "USER":
           navigate("/user", { replace: true });
           break;
         case "DOCTOR":
-          navigate("/doctor", { replace: true });
+          toast("Doctor account detected. Please use the Doctor Portal (port 5174)", { icon: "🩺", duration: 5000 });
+          navigate("/", { replace: true });
+          break;
+        case "ADMIN":
+          toast("System Administrator account detected. Please use the System Admin Portal (port 5176)", { icon: "🛡️", duration: 5000 });
+          navigate("/", { replace: true });
+          break;
+        case "ORGANIZATION_ADMIN":
+        case "CLINIC_ADMIN":
+        case "ASSISTANT":
+          toast("Staff account detected. Please use the Clinic & Staff Portal (port 5175)", { icon: "🏥", duration: 5000 });
+          navigate("/", { replace: true });
           break;
         default:
-          navigate("/", { replace: true });
+          navigate("/user", { replace: true });
       }
 
     } catch (err) {

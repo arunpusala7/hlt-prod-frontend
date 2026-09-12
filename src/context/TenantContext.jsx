@@ -3,57 +3,55 @@ import api from "../api/api";
 
 const TenantContext = createContext(null);
 
-const getInitialTenant = () => {
-  if (typeof window === "undefined") return null;
-  try {
-    const host = window.location.host;
-    const cached = localStorage.getItem(`hc_tenant_${host}`);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (parsed && typeof parsed === "object") return parsed;
-    }
-  } catch {}
-  return null;
-};
-
 export function TenantProvider({ children }) {
-  const [tenant, setTenant] = useState(getInitialTenant);
-  const [loadingTenant, setLoadingTenant] = useState(() => !getInitialTenant());
-
-  useEffect(() => {
-    // Immediate title/favicon application from cached tenant
-    if (tenant?.name) {
-      document.title = `${tenant.name} | Modern Healthcare Portal`;
-    }
-    if (tenant?.logoUrl) {
-      const existingFavicon = document.querySelector("link[rel*='icon']");
-      if (existingFavicon) {
-        existingFavicon.href = tenant.logoUrl;
-      }
-    }
-  }, []);
+  const [tenant, setTenant] = useState(null);
+  const [loadingTenant, setLoadingTenant] = useState(true);
 
   useEffect(() => {
     const bootstrapTenant = async () => {
       try {
-        const origin = window.location.origin;
-        // 1. Try primary endpoint /api/v2/partner?domain_eq={window.location.origin}
-        let res;
-        try {
-          res = await api.get(`/api/v2/partner`, { params: { domain_eq: origin } });
-        } catch {
-          // Fallback endpoint /api/public/tenant?domain={window.location.origin}
-          res = await api.get(`/api/public/tenant`, { params: { domain: origin } });
+        const isLocal =
+          typeof window !== "undefined" &&
+          (window.location.hostname === "localhost" ||
+           window.location.hostname === "127.0.0.1");
+
+        // Local testing override (?tenant=apollo.zuuuz.in) strictly scoped to local dev
+        // Zero effect on production multi-tenancy!
+        let localOverrideDomain = null;
+        if (isLocal) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const param = urlParams.get("tenant") || urlParams.get("domain");
+          if (param) {
+            if (param === "clear" || param === "default" || param === "reset") {
+              localStorage.removeItem("hc_test_tenant_domain");
+            } else {
+              localStorage.setItem("hc_test_tenant_domain", param);
+              localOverrideDomain = param;
+            }
+          } else {
+            localOverrideDomain = localStorage.getItem("hc_test_tenant_domain");
+          }
         }
 
-        if (res && res.data) {
+        // Resolution:
+        // Production: Always resolves by actual domain (window.location.hostname / origin)
+        // Local Dev: If test param is provided, queries that tenant; otherwise uses window.location.origin
+        const domainToResolve =
+          (isLocal && localOverrideDomain)
+            ? localOverrideDomain
+            : (!isLocal ? window.location.hostname : window.location.origin);
+
+        let res;
+        try {
+          res = await api.get(`/api/v2/partner`, { params: { domain_eq: domainToResolve } });
+        } catch {
+          res = await api.get(`/api/public/tenant`, { params: { domain: domainToResolve } });
+        }
+
+        if (res && res.data && (res.data.id || res.data.tenantType)) {
           setTenant(res.data);
-          try {
-            localStorage.setItem(`hc_tenant_${window.location.host}`, JSON.stringify(res.data));
-          } catch {}
-          // Set page title and favicon if provided
           if (res.data.name) {
-            document.title = `${res.data.name} | Modern Healthcare Portal`;
+            document.title = `${res.data.name.trim()} | Modern Healthcare Portal`;
           }
           if (res.data.logoUrl) {
             const existingFavicon = document.querySelector("link[rel*='icon']");
@@ -61,6 +59,8 @@ export function TenantProvider({ children }) {
               existingFavicon.href = res.data.logoUrl;
             }
           }
+        } else {
+          throw new Error("No tenant payload returned");
         }
       } catch (err) {
         // Fallback default platform state
