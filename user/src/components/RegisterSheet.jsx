@@ -101,7 +101,19 @@ function RegisterSheet({ isOpen, onClose, onSwitchToLogin }) {
     setLoading(true);
 
     try {
-      await api.post("/api/auth/send-otp", { email: trimmedEmail });
+      const tType = tenant?.tenantType ? tenant.tenantType.toUpperCase() : null;
+      const tDomain = tenant?.tenantDomain || tenant?.domain || (tType !== "PLATFORM" ? window.location.hostname : null);
+      const otpPayload = { email: trimmedEmail };
+      if (tDomain) otpPayload.tenantDomain = tDomain;
+      if (tType === "CLINIC" || tType === "SINGLE_CLINIC" || tType === "STANDALONE_CLINIC") {
+        const clinicId = tenant?.clinicId || tenant?.id;
+        if (clinicId) otpPayload.clinicId = clinicId;
+      } else if (tType === "ORGANIZATION") {
+        const orgId = tenant?.organizationId || tenant?.id;
+        if (orgId) otpPayload.organizationId = orgId;
+      }
+
+      await api.post("/api/auth/send-otp", otpPayload);
       
       // Advance to OTP Step inside the sheet
       setStep("otp");
@@ -141,7 +153,19 @@ function RegisterSheet({ isOpen, onClose, onSwitchToLogin }) {
     const toastId = toast.loading("Resending code...");
 
     try {
-      await api.post("/api/auth/send-otp", { email: email.trim().toLowerCase() });
+      const tType = tenant?.tenantType ? tenant.tenantType.toUpperCase() : null;
+      const tDomain = tenant?.tenantDomain || tenant?.domain || (tType !== "PLATFORM" ? window.location.hostname : null);
+      const otpPayload = { email: email.trim().toLowerCase() };
+      if (tDomain) otpPayload.tenantDomain = tDomain;
+      if (tType === "CLINIC" || tType === "SINGLE_CLINIC" || tType === "STANDALONE_CLINIC") {
+        const clinicId = tenant?.clinicId || tenant?.id;
+        if (clinicId) otpPayload.clinicId = clinicId;
+      } else if (tType === "ORGANIZATION") {
+        const orgId = tenant?.organizationId || tenant?.id;
+        if (orgId) otpPayload.organizationId = orgId;
+      }
+
+      await api.post("/api/auth/send-otp", otpPayload);
       toast.success("New 6-digit code sent!", { id: toastId, icon: "📩" });
       setResendCooldown(30);
       setOtp("");
@@ -169,8 +193,8 @@ function RegisterSheet({ isOpen, onClose, onSwitchToLogin }) {
     setOtpLoading(true);
 
     try {
-      const orgId = tenant?.organizationId || (tenant?.tenantType !== "PLATFORM" && tenant?.id ? tenant.id : null);
-      const tDomain = tenant?.tenantDomain || tenant?.domain || (tenant?.tenantType !== "PLATFORM" ? window.location.hostname : null);
+      const tType = tenant?.tenantType ? tenant.tenantType.toUpperCase() : null;
+      const tDomain = tenant?.tenantDomain || tenant?.domain || (tType !== "PLATFORM" ? window.location.hostname : null);
 
       const registerPayload = {
         name: name.trim(),
@@ -179,8 +203,15 @@ function RegisterSheet({ isOpen, onClose, onSwitchToLogin }) {
         role: "PATIENT",
         otp: cleanOtp,
       };
-      if (orgId) registerPayload.organizationId = orgId;
       if (tDomain) registerPayload.tenantDomain = tDomain;
+
+      if (tType === "CLINIC" || tType === "SINGLE_CLINIC" || tType === "STANDALONE_CLINIC") {
+        const clinicId = tenant?.clinicId || tenant?.id;
+        if (clinicId) registerPayload.clinicId = clinicId;
+      } else if (tType === "ORGANIZATION") {
+        const orgId = tenant?.organizationId || tenant?.id;
+        if (orgId) registerPayload.organizationId = orgId;
+      }
 
       const res = await api.post("/api/auth/register", registerPayload);
 
@@ -198,6 +229,7 @@ function RegisterSheet({ isOpen, onClose, onSwitchToLogin }) {
           organizationId,
           organizationName,
           tenantDomain: resTenantDomain,
+          clinicId,
         } = res.data;
 
         localStorage.setItem("token", token);
@@ -206,7 +238,7 @@ function RegisterSheet({ isOpen, onClose, onSwitchToLogin }) {
         if (userEmail) localStorage.setItem("userEmail", userEmail);
         const finalUserId = id || userId;
         if (finalUserId) localStorage.setItem("userId", String(finalUserId));
-        if (organizationId) localStorage.setItem("organizationId", organizationId);
+        if (organizationId) { localStorage.setItem("organizationId", organizationId); localStorage.removeItem("clinicId"); } else if (clinicId) { localStorage.setItem("clinicId", String(clinicId)); localStorage.removeItem("organizationId"); }
         if (organizationName) localStorage.setItem("organizationName", organizationName);
         if (resTenantDomain || tDomain) localStorage.setItem("tenantDomain", resTenantDomain || tDomain);
 

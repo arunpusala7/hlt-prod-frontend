@@ -58,12 +58,19 @@ function LoginSheet({ isOpen, onClose, onSwitchToRegister, initialEmail = "", in
         password,
       };
 
-      // Note for Global Super Admins: Omit organizationId and tenantDomain
+      // Note for Global Super Admins: Omit organizationId, clinicId and tenantDomain
       if (!isSuperAdmin) {
-        const orgId = tenant?.organizationId || (tenant?.tenantType !== "PLATFORM" && tenant?.id ? tenant.id : null);
-        const tDomain = tenant?.tenantDomain || tenant?.domain || (tenant?.tenantType !== "PLATFORM" ? window.location.hostname : null);
-        if (orgId) payload.organizationId = orgId;
+        const tType = tenant?.tenantType ? tenant.tenantType.toUpperCase() : null;
+        const tDomain = tenant?.tenantDomain || tenant?.domain || (tType !== "PLATFORM" ? window.location.hostname : null);
         if (tDomain) payload.tenantDomain = tDomain;
+
+        if (tType === "CLINIC" || tType === "SINGLE_CLINIC" || tType === "STANDALONE_CLINIC") {
+          const clinicId = tenant?.clinicId || tenant?.id;
+          if (clinicId) payload.clinicId = clinicId;
+        } else if (tType === "ORGANIZATION") {
+          const orgId = tenant?.organizationId || tenant?.id;
+          if (orgId) payload.organizationId = orgId;
+        }
       }
 
       const res = await api.post("/api/auth/login", payload);
@@ -85,10 +92,10 @@ function LoginSheet({ isOpen, onClose, onSwitchToRegister, initialEmail = "", in
       localStorage.setItem("role", role);
       if (name) localStorage.setItem("userName", name);
       if (userEmail || cleanEmail) localStorage.setItem("userEmail", userEmail || cleanEmail);
-      if (organizationId) localStorage.setItem("organizationId", organizationId);
+      if (organizationId) { localStorage.setItem("organizationId", organizationId); localStorage.removeItem("clinicId"); }
       if (organizationName) localStorage.setItem("organizationName", organizationName);
       if (tenantDomain) localStorage.setItem("tenantDomain", tenantDomain);
-      if (clinicId) localStorage.setItem("clinicId", String(clinicId));
+      if (clinicId) { localStorage.setItem("clinicId", String(clinicId)); localStorage.removeItem("organizationId"); }
 
       const finalUserId = id || userId;
       if (finalUserId) {
